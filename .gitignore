@@ -1,0 +1,43 @@
+# dependencies
+
+node_modules/
+
+# next.js build files
+
+.next/
+out/
+
+# production
+
+build/
+
+# env files (IMPORTANT)
+
+.env
+.env.*
+.env.local
+
+# logs
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# system files
+
+.DS_Store
+Thumbs.db
+
+# IDE
+
+.vscode/
+.idea/
+
+# typescript
+
+*.tsbuildinfo
+
+# misc
+
+*.log
