@@ -239,6 +239,7 @@ export default function DiscoverPage() {
                     <div className="liquid-glass rounded-[28px] px-6 py-3 flex items-center gap-8">
                         {[
                             { label: "Discover", href: "/discover", active: true },
+                            { label: "Projects", href: "/projects" },
                             { label: "Matches", href: "/matches", active: false },
                             { label: "Profile", href: "/profile-edit", active: false },
                         ].map((item) => (

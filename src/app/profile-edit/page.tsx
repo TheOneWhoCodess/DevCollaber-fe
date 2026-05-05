@@ -491,6 +491,7 @@ export default function ProfileEditPage() {
                     <div className="liquid-glass rounded-[28px] px-6 py-3 flex items-center gap-8">
                         {[
                             { label: "Discover", href: "/discover", active: false },
+                            { label: "Projects", href: "/projects" },
                             { label: "Matches", href: "/matches", active: false },
                             { label: "Profile", href: "/profile-edit", active: true },
                         ].map((item) => (
