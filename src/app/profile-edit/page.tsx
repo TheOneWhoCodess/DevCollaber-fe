@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/src/lib/useAuth";
 import AuthGuard from "@/src/components/AuthGuard";
 import { Camera, LogOut, Check } from "lucide-react";
-
+import { Share } from "lucide-react";
 const ROLES = ["frontend", "backend", "fullstack", "devops", "ml", "mobile"];
 const PROJECT_TYPES = ["saas", "opensource", "startup", "sideproject"];
 const COMMITMENTS = ["parttime", "fulltime", "flexible"];
@@ -232,6 +232,18 @@ export default function ProfileEditPage() {
                             </span>
                         </button>
                     </div>
+
+                    // Add after the header:
+                    <button
+                        onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/u/${encodeURIComponent(form.name)}`);
+                            // show toast
+                        }}
+                        className="liquid-glass rounded-[12px] px-4 py-2 flex items-center gap-2 hover:bg-white/10 transition-colors"
+                    >
+                        <Share size={14} className="text-cream/60" />
+                        <span className="font-mono text-[11px] uppercase text-cream/60">Share Profile</span>
+                    </button>
 
                     <div className="flex flex-col gap-10">
                         {/* ── Avatar ───────────────────────────── */}

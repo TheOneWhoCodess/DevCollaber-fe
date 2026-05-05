@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AuthGuard from "@/src/components/AuthGuard";
 import { Plus, Filter } from "lucide-react";
+import NotificationBell from "@/src/components/NotificationBell";
 
 interface Project {
     _id: string;
@@ -89,6 +90,7 @@ export default function ProjectsPage() {
                             </span>
                         </div>
                         <div className="flex gap-2">
+                            <NotificationBell />
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
                                 className={`liquid-glass w-10 h-10 rounded-[12px] flex items-center justify-center transition-colors ${(filterStage || filterRole) ? "bg-neon/20 border border-neon/30" : "hover:bg-white/10"}`}

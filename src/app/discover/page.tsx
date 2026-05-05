@@ -7,6 +7,9 @@ import SwipeCard from "@/src/components/SwipeCard";
 import MatchPopup from "@/src/components/MatchPopup";
 import { SlidersHorizontal, RefreshCw } from "lucide-react";
 import AuthGuard from "@/src/components/AuthGuard";
+import { Search, X } from "lucide-react";
+import OnboardingTour from "@/src/components/OnboardingTour";
+import NotificationBell from "@/src/components/NotificationBell";
 interface Profile {
     _id: string;
     name: string;
@@ -41,7 +44,8 @@ export default function DiscoverPage() {
     const [filterRole, setFilterRole] = useState("");
     const [showFilters, setShowFilters] = useState(false);
     const [empty, setEmpty] = useState(false);
-
+    const [showOnboarding, setShowOnboarding] = useState(false);
+    const [search, setSearch] = useState("");
     /* ── Fetch profiles ─────────────────────────────────── */
     const fetchProfiles = useCallback(async () => {
         setLoading(true);
@@ -93,6 +97,16 @@ export default function DiscoverPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    useEffect(() => {
+        const seen = localStorage.getItem("devcollab_onboarded");
+        if (!seen) setShowOnboarding(true);
+    }, []);
+
+    const handleOnboardingDone = () => {
+        localStorage.setItem("devcollab_onboarded", "true");
+        setShowOnboarding(false);
+    };
+
     /* ── Swipe action ───────────────────────────────────── */
     const handleSwipe = async (action: "like" | "pass" | "superlike") => {
         const current = profiles[profiles.length - 1];
@@ -141,6 +155,7 @@ export default function DiscoverPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        <NotificationBell />
                         {/* Refresh */}
                         <button
                             onClick={fetchProfiles}
@@ -157,6 +172,23 @@ export default function DiscoverPage() {
                         >
                             <SlidersHorizontal size={16} className={filterRole ? "text-neon" : "text-cream/60"} />
                         </button>
+                    </div>
+                </div>
+
+                <div className="relative z-10 max-w-lg mx-auto w-full px-4 pb-4">
+                    <div className="liquid-glass rounded-[16px] px-4 py-3 flex items-center gap-3">
+                        <Search size={14} className="text-cream/30 flex-shrink-0" />
+                        <input
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search by name or skill..."
+                            className="flex-1 bg-transparent font-mono text-[12px] uppercase text-cream placeholder:text-cream/20 outline-none"
+                        />
+                        {search && (
+                            <button onClick={() => setSearch("")} className="text-cream/30 hover:text-cream transition-colors">
+                                <X size={14} />
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -262,7 +294,9 @@ export default function DiscoverPage() {
                         onClose={() => setMatch(null)}
                     />
                 )}
-            </main>
+
+                {showOnboarding && <OnboardingTour onDone={handleOnboardingDone} />
+                } </main>
         </AuthGuard>
     );
 }

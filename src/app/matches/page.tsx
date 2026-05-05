@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MessageCircle, Github } from "lucide-react";
 import AuthGuard from "@/src/components/AuthGuard";
+import NotificationBell from "@/src/components/NotificationBell";
 interface MatchUser {
     _id: string;
     name: string;
@@ -97,6 +98,7 @@ export default function MatchesPage() {
                             your connections
                         </span>
                     </div>
+                    <NotificationBell />
 
                     {loading ? (
                         <div className="flex flex-col items-center gap-4 mt-20">
