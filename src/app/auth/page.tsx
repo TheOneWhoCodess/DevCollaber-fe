@@ -14,7 +14,6 @@ export default function AuthPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    // 🔗 Send token to backend
     const sendTokenToBackend = async (idToken: string) => {
         try {
             const res = await fetch(
@@ -22,7 +21,7 @@ export default function AuthPage() {
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    credentials: "include",
+                    // ❌ removed credentials: "include" (cookies don't work cross-domain)
                     body: JSON.stringify({ idToken }),
                 }
             );
@@ -33,26 +32,24 @@ export default function AuthPage() {
                 throw new Error(data.message || "Auth failed");
             }
 
-            // ✅ Redirect after login
+            // ✅ Save JWT to localStorage instead of relying on cookie
+            if (data.token) {
+                localStorage.setItem("token", data.token);
+            }
+
             router.push(data.isNewUser ? "/profile-setup" : "/discover");
         } catch (err: any) {
             setError(err.message || "Backend auth failed");
         }
     };
 
-    // 🔁 Handle redirect result (desktop flow)
     useEffect(() => {
         const checkRedirect = async () => {
             try {
-                // Small delay helps Firebase restore session on mobile/slow browsers
                 await new Promise((res) => setTimeout(res, 500));
-
                 const result = await getRedirectResult(auth);
-
                 if (!result) return;
-
                 setLoading(true);
-
                 const idToken = await result.user.getIdToken();
                 await sendTokenToBackend(idToken);
             } catch (err: any) {
@@ -65,7 +62,6 @@ export default function AuthPage() {
         checkRedirect();
     }, []);
 
-    // 🔐 Login handler
     const handleGoogleLogin = async () => {
         setLoading(true);
         setError("");
@@ -76,12 +72,10 @@ export default function AuthPage() {
                 /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
             if (isMobile) {
-                // ✅ MOBILE → POPUP (fixes your issue)
                 const result = await signInWithPopup(auth, googleProvider);
                 const idToken = await result.user.getIdToken();
                 await sendTokenToBackend(idToken);
             } else {
-                // ✅ DESKTOP → REDIRECT
                 await signInWithRedirect(auth, googleProvider);
             }
         } catch (err: any) {

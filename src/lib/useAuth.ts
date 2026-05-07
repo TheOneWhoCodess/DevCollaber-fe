@@ -19,12 +19,26 @@ export function useAuth(redirectIfUnauthenticated = true) {
     useEffect(() => {
         const checkAuth = async () => {
             try {
+                // ✅ Read token from localStorage
+                const token = localStorage.getItem("token");
+
+                if (!token) {
+                    if (redirectIfUnauthenticated) router.push("/auth");
+                    setLoading(false);
+                    return;
+                }
+
                 const res = await fetch(
                     `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
-                    { credentials: "include" }
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`, // ✅ send as header
+                        },
+                    }
                 );
 
                 if (!res.ok) {
+                    localStorage.removeItem("token"); // ✅ clear invalid token
                     if (redirectIfUnauthenticated) router.push("/auth");
                     return;
                 }
@@ -32,6 +46,7 @@ export function useAuth(redirectIfUnauthenticated = true) {
                 const data = await res.json();
                 setUser(data.user);
             } catch {
+                localStorage.removeItem("token");
                 if (redirectIfUnauthenticated) router.push("/auth");
             } finally {
                 setLoading(false);
