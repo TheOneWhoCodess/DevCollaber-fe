@@ -1,12 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-    signInWithRedirect,
-    signInWithPopup,
-    getRedirectResult,
-} from "firebase/auth";
+import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/src/lib/firebase";
 
 export default function AuthPage() {
@@ -15,52 +11,24 @@ export default function AuthPage() {
     const [error, setError] = useState("");
 
     const sendTokenToBackend = async (idToken: string) => {
-        try {
-            const res = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/auth/google`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    // ❌ removed credentials: "include" (cookies don't work cross-domain)
-                    body: JSON.stringify({ idToken }),
-                }
-            );
-
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.message || "Auth failed");
+        const res = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/auth/google`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ idToken }),
             }
+        );
 
-            // ✅ Save JWT to localStorage instead of relying on cookie
-            if (data.token) {
-                localStorage.setItem("token", data.token);
-            }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Auth failed");
 
-            router.push(data.isNewUser ? "/profile-setup" : "/discover");
-        } catch (err: any) {
-            setError(err.message || "Backend auth failed");
+        if (data.token) {
+            localStorage.setItem("token", data.token);
         }
+
+        router.push(data.isNewUser ? "/profile-setup" : "/discover");
     };
-
-    useEffect(() => {
-        const checkRedirect = async () => {
-            try {
-                await new Promise((res) => setTimeout(res, 500));
-                const result = await getRedirectResult(auth);
-                if (!result) return;
-                setLoading(true);
-                const idToken = await result.user.getIdToken();
-                await sendTokenToBackend(idToken);
-            } catch (err: any) {
-                setError(err.message || "Redirect login failed");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        checkRedirect();
-    }, []);
 
     const handleGoogleLogin = async () => {
         setLoading(true);
@@ -71,10 +39,17 @@ export default function AuthPage() {
             const idToken = await result.user.getIdToken();
             await sendTokenToBackend(idToken);
         } catch (err: any) {
-            setError(err.message || "Google sign-in failed");
+            // User cancelled popup — don't show scary error
+            if (err.code === "auth/popup-closed-by-user" ||
+                err.code === "auth/cancelled-popup-request") {
+                setError("Sign-in cancelled. Please try again.");
+            } else {
+                setError(err.message || "Google sign-in failed");
+            }
             setLoading(false);
         }
     };
+
 
     return (
         <main className="relative min-h-screen bg-background flex items-center justify-center px-4 overflow-hidden">
