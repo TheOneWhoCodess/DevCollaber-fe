@@ -67,17 +67,9 @@ export default function AuthPage() {
         setError("");
 
         try {
-            const isMobile =
-                typeof window !== "undefined" &&
-                /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-            if (isMobile) {
-                const result = await signInWithPopup(auth, googleProvider);
-                const idToken = await result.user.getIdToken();
-                await sendTokenToBackend(idToken);
-            } else {
-                await signInWithRedirect(auth, googleProvider);
-            }
+            const result = await signInWithPopup(auth, googleProvider);
+            const idToken = await result.user.getIdToken();
+            await sendTokenToBackend(idToken);
         } catch (err: any) {
             setError(err.message || "Google sign-in failed");
             setLoading(false);
