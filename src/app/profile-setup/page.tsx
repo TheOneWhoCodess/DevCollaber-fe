@@ -55,10 +55,14 @@ export default function ProfileSetupPage() {
         setLoading(true);
         setError("");
         try {
+            const token = localStorage.getItem("token");
+
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profile/update`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,  // ✅ correct auth strategy
+                },
                 body: JSON.stringify({ ...form, experience: Number(form.experience) || 0 }),
             });
             const data = await res.json();

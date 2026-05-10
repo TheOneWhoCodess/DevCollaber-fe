@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { signInWithPopup } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, getRedirectResult } from "firebase/auth";
 import { auth, googleProvider } from "@/src/lib/firebase";
 
 export default function AuthPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
+    const isMobile = () => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
     const sendTokenToBackend = async (idToken: string) => {
         const res = await fetch(
@@ -23,33 +25,60 @@ export default function AuthPage() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Auth failed");
 
-        if (data.token) {
-            localStorage.setItem("token", data.token);
-        }
+        // ✅ Treat missing token as an error — don't navigate blindly
+        if (!data.token) throw new Error("No token received from server");
 
+        localStorage.setItem("token", data.token);
         router.push(data.isNewUser ? "/profile-setup" : "/discover");
     };
+
+    // ✅ Handle redirect result when user lands back on the page (mobile)
+    useEffect(() => {
+        const handleRedirectResult = async () => {
+            try {
+                setLoading(true);
+                const result = await getRedirectResult(auth);
+                if (result) {
+                    const idToken = await result.user.getIdToken();
+                    await sendTokenToBackend(idToken);
+                }
+            } catch (err: any) {
+                setError(err.message || "Google sign-in failed");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        handleRedirectResult();
+    }, []);
 
     const handleGoogleLogin = async () => {
         setLoading(true);
         setError("");
 
         try {
-            const result = await signInWithPopup(auth, googleProvider);
-            const idToken = await result.user.getIdToken();
-            await sendTokenToBackend(idToken);
+            if (isMobile()) {
+                // ✅ Redirect flow for mobile — no popup needed
+                await signInWithRedirect(auth, googleProvider);
+            } else {
+                // ✅ Popup flow for desktop
+                const result = await signInWithPopup(auth, googleProvider);
+                const idToken = await result.user.getIdToken();
+                await sendTokenToBackend(idToken);
+            }
         } catch (err: any) {
-            // User cancelled popup — don't show scary error
-            if (err.code === "auth/popup-closed-by-user" ||
-                err.code === "auth/cancelled-popup-request") {
+            if (
+                err.code === "auth/popup-closed-by-user" ||
+                err.code === "auth/cancelled-popup-request"
+            ) {
                 setError("Sign-in cancelled. Please try again.");
             } else {
                 setError(err.message || "Google sign-in failed");
             }
+        } finally {
             setLoading(false);
         }
     };
-
 
     return (
         <main className="relative min-h-screen bg-background flex items-center justify-center px-4 overflow-hidden">

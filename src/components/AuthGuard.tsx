@@ -3,7 +3,7 @@
 import { useAuth } from "../lib/useAuth";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
-    const { loading } = useAuth(true);
+    const { user, loading } = useAuth(true);
 
     if (loading) {
         return (
@@ -17,6 +17,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
             </div>
         );
     }
+
+    if (!user) return null;
 
     return <>{children}</>;
 }
