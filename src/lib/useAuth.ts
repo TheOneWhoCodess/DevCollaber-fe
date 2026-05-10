@@ -21,7 +21,12 @@ export function useAuth(redirectIfUnauthenticated = true) {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                await getRedirectResult(auth);
+                // ✅ isolated — errors here won't affect the token check below
+                try {
+                    await getRedirectResult(auth);
+                } catch {
+                    // ignore — this page wasn't the redirect target
+                }
 
                 const token = localStorage.getItem("token");
 
@@ -44,6 +49,7 @@ export function useAuth(redirectIfUnauthenticated = true) {
                 const data = await res.json();
                 setUser(data.user);
             } catch {
+                // ✅ only token validation errors reach here now
                 localStorage.removeItem("token");
                 if (redirectIfUnauthenticated) router.push("/auth");
             } finally {
