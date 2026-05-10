@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getRedirectResult } from "firebase/auth";
+import { auth } from "./firebase";
 
 interface User {
     _id: string;
@@ -19,26 +21,22 @@ export function useAuth(redirectIfUnauthenticated = true) {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                // ✅ Read token from localStorage
+                await getRedirectResult(auth);
+
                 const token = localStorage.getItem("token");
 
                 if (!token) {
                     if (redirectIfUnauthenticated) router.push("/auth");
-                    setLoading(false);
                     return;
                 }
 
                 const res = await fetch(
                     `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
-                    {
-                        headers: {
-                            Authorization: `Bearer ${token}`, // ✅ send as header
-                        },
-                    }
+                    { headers: { Authorization: `Bearer ${token}` } }
                 );
 
                 if (!res.ok) {
-                    localStorage.removeItem("token"); // ✅ clear invalid token
+                    localStorage.removeItem("token");
                     if (redirectIfUnauthenticated) router.push("/auth");
                     return;
                 }
@@ -54,7 +52,7 @@ export function useAuth(redirectIfUnauthenticated = true) {
         };
 
         checkAuth();
-    }, [router, redirectIfUnauthenticated]);
+    }, []);
 
     return { user, loading };
 }
