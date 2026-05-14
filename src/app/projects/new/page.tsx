@@ -64,8 +64,7 @@ export default function NewProjectPage() {
                 `${process.env.NEXT_PUBLIC_API_URL}/api/projects`,
                 {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}` },
                     body: JSON.stringify(form),
                 }
             );
