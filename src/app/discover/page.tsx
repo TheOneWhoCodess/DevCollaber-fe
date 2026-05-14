@@ -10,6 +10,7 @@ import AuthGuard from "@/src/components/AuthGuard";
 import { Search, X } from "lucide-react";
 import OnboardingTour from "@/src/components/OnboardingTour";
 import NotificationBell from "@/src/components/NotificationBell";
+
 interface Profile {
     _id: string;
     name: string;
@@ -46,17 +47,20 @@ export default function DiscoverPage() {
     const [empty, setEmpty] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [search, setSearch] = useState("");
+
     /* ── Fetch profiles ─────────────────────────────────── */
     const fetchProfiles = useCallback(async () => {
         setLoading(true);
         setEmpty(false);
         try {
+            const token = localStorage.getItem("token");
             const params = new URLSearchParams({ limit: "10" });
             if (filterRole) params.set("role", filterRole);
+            if (search) params.set("search", search);
 
             const res = await fetch(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/profile/discover?${params}`,
-                { credentials: "include" }
+                { headers: { Authorization: `Bearer ${token}` } }
             );
 
             if (res.status === 401) { router.push("/auth"); return; }
@@ -69,22 +73,18 @@ export default function DiscoverPage() {
         } finally {
             setLoading(false);
         }
-    }, [filterRole, router]);
+    }, [filterRole, search, router]);
 
     useEffect(() => { fetchProfiles(); }, [fetchProfiles]);
 
     /* ── Socket ─────────────────────────────────────────── */
     useEffect(() => {
-        const fetchToken = async () => {
-            const res = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
-                { credentials: "include" }
-            );
-            if (!res.ok) return;
-            const data = await res.json();
+        const initSocket = () => {
+            const token = localStorage.getItem("token");
+            if (!token) return;
 
             const s = io(process.env.NEXT_PUBLIC_API_URL!, {
-                auth: { token: data.token },
+                auth: { token },
                 withCredentials: true,
             });
 
@@ -92,7 +92,7 @@ export default function DiscoverPage() {
             setSocket(s);
         };
 
-        fetchToken();
+        initSocket();
         return () => { socket?.disconnect(); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -112,21 +112,21 @@ export default function DiscoverPage() {
         const current = profiles[profiles.length - 1];
         if (!current) return;
 
-        // Optimistically remove top card
         setProfiles((prev) => prev.slice(0, -1));
 
         try {
             await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/swipe`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
                 body: JSON.stringify({ targetId: current._id, action }),
             });
         } catch (err) {
             console.error(err);
         }
 
-        // Refetch when stack is low
         if (profiles.length <= 2) fetchProfiles();
     };
 
@@ -156,7 +156,6 @@ export default function DiscoverPage() {
 
                     <div className="flex items-center gap-3">
                         <NotificationBell />
-                        {/* Refresh */}
                         <button
                             onClick={fetchProfiles}
                             className="liquid-glass w-10 h-10 rounded-[12px] flex items-center justify-center hover:bg-white/10 transition-colors"
@@ -164,17 +163,16 @@ export default function DiscoverPage() {
                             <RefreshCw size={16} className="text-cream/60" />
                         </button>
 
-                        {/* Filter */}
                         <button
                             onClick={() => setShowFilters(!showFilters)}
-                            className={`liquid-glass w-10 h-10 rounded-[12px] flex items-center justify-center transition-colors ${filterRole ? "bg-neon/20 border border-neon/30" : "hover:bg-white/10"
-                                }`}
+                            className={`liquid-glass w-10 h-10 rounded-[12px] flex items-center justify-center transition-colors ${filterRole ? "bg-neon/20 border border-neon/30" : "hover:bg-white/10"}`}
                         >
                             <SlidersHorizontal size={16} className={filterRole ? "text-neon" : "text-cream/60"} />
                         </button>
                     </div>
                 </div>
 
+                {/* Search */}
                 <div className="relative z-10 max-w-lg mx-auto w-full px-4 pb-4">
                     <div className="liquid-glass rounded-[16px] px-4 py-3 flex items-center gap-3">
                         <Search size={14} className="text-cream/30 flex-shrink-0" />
@@ -241,7 +239,6 @@ export default function DiscoverPage() {
                         </div>
                     ) : (
                         <div className="relative w-full max-w-sm h-[580px]">
-                            {/* Render bottom cards as stack shadows */}
                             {profiles.slice(0, -1).map((p, i) => (
                                 <div
                                     key={p._id}
@@ -253,7 +250,6 @@ export default function DiscoverPage() {
                                 />
                             ))}
 
-                            {/* Top swipeable card */}
                             <div className="absolute inset-0" style={{ zIndex: profiles.length }}>
                                 <SwipeCard
                                     key={profiles[profiles.length - 1]._id}
@@ -278,8 +274,7 @@ export default function DiscoverPage() {
                             <button
                                 key={item.label}
                                 onClick={() => router.push(item.href)}
-                                className={`font-grotesk text-[11px] uppercase tracking-widest transition-colors ${item.active ? "text-neon" : "text-cream/40 hover:text-cream"
-                                    }`}
+                                className={`font-grotesk text-[11px] uppercase tracking-widest transition-colors ${item.active ? "text-neon" : "text-cream/40 hover:text-cream"}`}
                             >
                                 {item.label}
                             </button>
@@ -287,7 +282,6 @@ export default function DiscoverPage() {
                     </div>
                 </div>
 
-                {/* Match popup */}
                 {match && (
                     <MatchPopup
                         match={match}
@@ -295,8 +289,8 @@ export default function DiscoverPage() {
                     />
                 )}
 
-                {showOnboarding && <OnboardingTour onDone={handleOnboardingDone} />
-                } </main>
+                {showOnboarding && <OnboardingTour onDone={handleOnboardingDone} />}
+            </main>
         </AuthGuard>
     );
 }

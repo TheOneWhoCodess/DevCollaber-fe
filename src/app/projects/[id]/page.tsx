@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import AuthGuard from "@/src/components/AuthGuard";
 import { ArrowLeft, Github, ExternalLink, Users } from "lucide-react";
-import { useAuth } from "@/src/lib/useAuth";
+import { useAuth } from "@/src/lib/AuthContext";
 
 interface Project {
     _id: string;
@@ -60,7 +60,7 @@ export default function ProjectDetailPage() {
             try {
                 const res = await fetch(
                     `${process.env.NEXT_PUBLIC_API_URL}/api/projects/${id}`,
-                    { credentials: "include" }
+                    { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
                 );
                 const data = await res.json();
                 setProject(data.project);
@@ -82,8 +82,7 @@ export default function ProjectDetailPage() {
                 `${process.env.NEXT_PUBLIC_API_URL}/api/projects/${id}/apply`,
                 {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
+                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
                     body: JSON.stringify({ message: applyMessage, role: applyRole }),
                 }
             );

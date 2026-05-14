@@ -32,7 +32,7 @@ export default function MyProjectsPage() {
             try {
                 const res = await fetch(
                     `${process.env.NEXT_PUBLIC_API_URL}/api/projects/mine`,
-                    { credentials: "include" }
+                    { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
                 );
                 const data = await res.json();
                 setProjects(data.projects || []);

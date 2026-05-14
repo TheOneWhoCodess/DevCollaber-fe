@@ -65,7 +65,7 @@ export default function NewProjectPage() {
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    credentials: "include",
+                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
                     body: JSON.stringify(form),
                 }
             );

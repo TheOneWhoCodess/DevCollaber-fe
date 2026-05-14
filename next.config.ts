@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  reactStrictMode: true,
-  // ✅ headers block removed — handled by middleware.ts now
+  reactStrictMode: false,
 };
 
 export default nextConfig;

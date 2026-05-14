@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Github } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import AuthGuard from "@/src/components/AuthGuard";
 import NotificationBell from "@/src/components/NotificationBell";
+import { useAuth } from "@/src/lib/AuthContext";
+
 interface MatchUser {
     _id: string;
     name: string;
@@ -24,28 +26,25 @@ interface Match {
 
 export default function MatchesPage() {
     const router = useRouter();
+    const { user } = useAuth();
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(true);
-    const [me, setMe] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchAll = async () => {
+        if (!user) return;
+
+        const fetchMatches = async () => {
             try {
-                const [meRes, matchRes] = await Promise.all([
-                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, { credentials: "include" }),
-                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/matches`, { credentials: "include" }),
-                ]);
+                const token = localStorage.getItem("token");
+                const res = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL}/api/matches`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
 
-                if (meRes.status === 401 || matchRes.status === 401) {
-                    router.push("/auth");
-                    return;
-                }
+                if (res.status === 401) { router.push("/auth"); return; }
 
-                const meData = await meRes.json();
-                const matchData = await matchRes.json();
-
-                setMe(meData.user._id);
-                setMatches(matchData.matches || []);
+                const data = await res.json();
+                setMatches(data.matches || []);
             } catch (err) {
                 console.error(err);
             } finally {
@@ -53,11 +52,11 @@ export default function MatchesPage() {
             }
         };
 
-        fetchAll();
-    }, [router]);
+        fetchMatches();
+    }, [user, router]);
 
     const getOther = (match: Match) =>
-        match.users.find((u) => u._id !== me) || match.users[0];
+        match.users.find((u) => u._id !== user?._id) || match.users[0];
 
     const roleColors: Record<string, string> = {
         frontend: "bg-blue-500/20 text-blue-300 border-blue-500/30",
@@ -92,13 +91,15 @@ export default function MatchesPage() {
 
                 <div className="relative z-10 max-w-lg mx-auto px-4 pt-8 pb-28">
                     {/* Header */}
-                    <div className="mb-8">
-                        <h1 className="font-grotesk text-[28px] uppercase text-cream">Matches</h1>
-                        <span className="font-condiment text-[20px] text-neon -rotate-1 inline-block">
-                            your connections
-                        </span>
+                    <div className="mb-6 flex items-center justify-between">
+                        <div>
+                            <h1 className="font-grotesk text-[28px] uppercase text-cream">Matches</h1>
+                            <span className="font-condiment text-[20px] text-neon -rotate-1 inline-block">
+                                your connections
+                            </span>
+                        </div>
+                        <NotificationBell />
                     </div>
-                    <NotificationBell />
 
                     {loading ? (
                         <div className="flex flex-col items-center gap-4 mt-20">
@@ -151,14 +152,12 @@ export default function MatchesPage() {
                                                     {other.name}
                                                 </h3>
                                                 <span
-                                                    className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-mono uppercase border ${roleColors[other.role] || "bg-white/10 text-cream/60 border-white/20"
-                                                        }`}
+                                                    className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-mono uppercase border ${roleColors[other.role] || "bg-white/10 text-cream/60 border-white/20"}`}
                                                 >
                                                     {other.role}
                                                 </span>
                                             </div>
 
-                                            {/* Skills preview */}
                                             <div className="flex gap-1 flex-wrap">
                                                 {other.skills?.slice(0, 3).map((s) => (
                                                     <span
@@ -173,20 +172,17 @@ export default function MatchesPage() {
 
                                         {/* Right side */}
                                         <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                                            {/* Match score */}
                                             <div className="liquid-glass rounded-[10px] px-2 py-1 flex flex-col items-center">
                                                 <span className="font-grotesk text-[14px] text-neon leading-none">
                                                     {match.matchScore}
                                                 </span>
                                                 <span className="font-mono text-[7px] text-neon/40 uppercase">match</span>
                                             </div>
-                                            {/* Time */}
                                             <span className="font-mono text-[9px] text-cream/20 uppercase">
                                                 {timeAgo(match.matchedAt)}
                                             </span>
                                         </div>
 
-                                        {/* Chat icon */}
                                         <MessageCircle size={18} className="text-cream/20 flex-shrink-0" />
                                     </div>
                                 );
@@ -207,8 +203,7 @@ export default function MatchesPage() {
                             <button
                                 key={item.label}
                                 onClick={() => router.push(item.href)}
-                                className={`font-grotesk text-[11px] uppercase tracking-widest transition-colors ${item.active ? "text-neon" : "text-cream/40 hover:text-cream"
-                                    }`}
+                                className={`font-grotesk text-[11px] uppercase tracking-widest transition-colors ${item.active ? "text-neon" : "text-cream/40 hover:text-cream"}`}
                             >
                                 {item.label}
                             </button>

@@ -4,13 +4,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithPopup, signInWithRedirect, getRedirectResult } from "firebase/auth";
 import { auth, googleProvider } from "@/src/lib/firebase";
+import { useAuth } from "@/src/lib/AuthContext";
 
 export default function AuthPage() {
     const router = useRouter();
+    const { setUser } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-
-    const isMobile = () => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
     const sendTokenToBackend = async (idToken: string) => {
         const res = await fetch(
@@ -21,23 +21,17 @@ export default function AuthPage() {
                 body: JSON.stringify({ idToken }),
             }
         );
-
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Auth failed");
-
-        // ✅ Treat missing token as an error — don't navigate blindly
         if (!data.token) throw new Error("No token received from server");
 
         localStorage.setItem("token", data.token);
-
-        // ✅ wait for localStorage write to complete before navigating
-        await new Promise(resolve => setTimeout(resolve, 100));
+        setUser(data.user);
         router.push(data.isNewUser ? "/profile-setup" : "/discover");
     };
 
-    // ✅ Handle redirect result when user lands back on the page (mobile)
     useEffect(() => {
-        const handleRedirectResult = async () => {
+        const handleRedirect = async () => {
             try {
                 setLoading(true);
                 const result = await getRedirectResult(auth);
@@ -46,13 +40,12 @@ export default function AuthPage() {
                     await sendTokenToBackend(idToken);
                 }
             } catch (err: any) {
-                setError(err.message || "Google sign-in failed");
+                setError(err.message || "Sign-in failed");
             } finally {
                 setLoading(false);
             }
         };
-
-        handleRedirectResult();
+        handleRedirect();
     }, []);
 
     const handleGoogleLogin = async () => {
@@ -64,18 +57,14 @@ export default function AuthPage() {
             await sendTokenToBackend(idToken);
         } catch (err: any) {
             if (err.code === "auth/popup-blocked") {
-                // Safari in-app browser fallback
                 await signInWithRedirect(auth, googleProvider);
-            } else if (
-                err.code === "auth/popup-closed-by-user" ||
-                err.code === "auth/cancelled-popup-request"
-            ) {
+            } else if (err.code === "auth/popup-closed-by-user") {
                 setError("Sign-in cancelled. Please try again.");
+                setLoading(false);
             } else {
                 setError(err.message || "Google sign-in failed");
+                setLoading(false);
             }
-        } finally {
-            setLoading(false);
         }
     };
 

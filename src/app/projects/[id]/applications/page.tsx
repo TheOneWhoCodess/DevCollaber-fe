@@ -43,7 +43,7 @@ export default function ApplicationsPage() {
             try {
                 const res = await fetch(
                     `${process.env.NEXT_PUBLIC_API_URL}/api/projects/${id}/applications`,
-                    { credentials: "include" }
+                    { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
                 );
                 if (res.status === 403) { router.push("/projects"); return; }
                 const data = await res.json();
@@ -65,7 +65,7 @@ export default function ApplicationsPage() {
                 {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
-                    credentials: "include",
+                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
                     body: JSON.stringify({ status }),
                 }
             );
@@ -122,8 +122,8 @@ export default function ApplicationsPage() {
                     {/* Status badge */}
                     {app.status !== "pending" && (
                         <span className={`px-3 py-1 rounded-full text-[9px] font-mono uppercase border flex-shrink-0 ${app.status === "accepted"
-                                ? "bg-neon/20 text-neon border-neon/30"
-                                : "bg-red-500/20 text-red-300 border-red-500/30"
+                            ? "bg-neon/20 text-neon border-neon/30"
+                            : "bg-red-500/20 text-red-300 border-red-500/30"
                             }`}>
                             {app.status}
                         </span>

@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/src/lib/useAuth";
 import AuthGuard from "@/src/components/AuthGuard";
 import { Camera, LogOut, Check } from "lucide-react";
 import { Share } from "lucide-react";
 import GitHubStats from "@/src/components/GitHubStats.tsx";
+import { useAuth } from "@/src/lib/AuthContext";
+
 const ROLES = ["frontend", "backend", "fullstack", "devops", "ml", "mobile"];
 const PROJECT_TYPES = ["saas", "opensource", "startup", "sideproject"];
 const COMMITMENTS = ["parttime", "fulltime", "flexible"];
@@ -51,7 +52,7 @@ export default function ProfileEditPage() {
         const fetchProfile = async () => {
             const res = await fetch(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
-                { credentials: "include" }
+                { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
             );
             const data = await res.json();
             const u = data.user;
@@ -114,7 +115,7 @@ export default function ProfileEditPage() {
                 `${process.env.NEXT_PUBLIC_API_URL}/api/profile/avatar`,
                 {
                     method: "POST",
-                    credentials: "include",
+                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
                     body: formData,
                 }
             );
@@ -142,8 +143,7 @@ export default function ProfileEditPage() {
                 `${process.env.NEXT_PUBLIC_API_URL}/api/profile/update`,
                 {
                     method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
+                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
                     body: JSON.stringify({
                         ...form,
                         experience: Number(form.experience) || 0,
@@ -167,7 +167,7 @@ export default function ProfileEditPage() {
     const handleLogout = async () => {
         await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, {
             method: "POST",
-            credentials: "include",
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
         router.push("/auth");
     };

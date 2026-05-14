@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { getRedirectResult } from "firebase/auth";
-import { auth } from "./firebase";
 
 interface User {
     _id: string;
@@ -13,25 +11,26 @@ interface User {
     avatar: string;
 }
 
-export function useAuth(redirectIfUnauthenticated = true) {
-    const router = useRouter();
+interface AuthContextType {
+    user: User | null;
+    loading: boolean;
+    setUser: (user: User | null) => void;
+    logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const router = useRouter();
 
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                // ✅ isolated — errors here won't affect the token check below
-                try {
-                    await getRedirectResult(auth);
-                } catch {
-                    // ignore — this page wasn't the redirect target
-                }
-
                 const token = localStorage.getItem("token");
-
                 if (!token) {
-                    if (redirectIfUnauthenticated) router.push("/auth");
+                    setLoading(false);
                     return;
                 }
 
@@ -42,23 +41,37 @@ export function useAuth(redirectIfUnauthenticated = true) {
 
                 if (!res.ok) {
                     localStorage.removeItem("token");
-                    if (redirectIfUnauthenticated) router.push("/auth");
+                    setLoading(false);
                     return;
                 }
 
                 const data = await res.json();
                 setUser(data.user);
             } catch {
-                // ✅ only token validation errors reach here now
                 localStorage.removeItem("token");
-                if (redirectIfUnauthenticated) router.push("/auth");
             } finally {
                 setLoading(false);
             }
         };
 
         checkAuth();
-    }, []);
+    }, []); // ✅ runs ONCE, ever
 
-    return { user, loading };
+    const logout = () => {
+        localStorage.removeItem("token");
+        setUser(null);
+        router.push("/auth");
+    };
+
+    return (
+        <AuthContext.Provider value={{ user, loading, setUser, logout }}>
+            {children}
+        </AuthContext.Provider>
+    );
+}
+
+export function useAuth() {
+    const context = useContext(AuthContext);
+    if (!context) throw new Error("useAuth must be used within AuthProvider");
+    return context;
 }

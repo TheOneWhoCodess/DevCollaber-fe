@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 import { ArrowLeft, Send } from "lucide-react";
 import AuthGuard from "@/src/components/AuthGuard";
+import { useAuth } from "@/src/lib/AuthContext";
 interface Message {
     _id: string;
     sender: { _id: string; name: string; avatar: string };
@@ -27,7 +28,7 @@ export default function ChatPage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(true);
-    const [me, setMe] = useState<string | null>(null);
+
     const [other, setOther] = useState<MatchUser | null>(null);
     const [socket, setSocket] = useState<Socket | null>(null);
     const [typing, setTyping] = useState(false);
@@ -40,6 +41,7 @@ export default function ChatPage() {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
+    const { user } = useAuth();
     useEffect(() => { scrollToBottom(); }, [messages]);
 
     /* ── Fetch initial data ───────────────────────── */
@@ -48,42 +50,39 @@ export default function ChatPage() {
 
         const fetchData = async () => {
             try {
-                const [meRes, msgRes, matchRes] = await Promise.all([
-                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, { credentials: "include" }),
-                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/messages/${matchId}`, { credentials: "include" }),
-                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/matches`, { credentials: "include" }),
+                const token = localStorage.getItem("token"); // ← token from localStorage
+
+                const [msgRes, matchRes] = await Promise.all([
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/messages/${matchId}`,
+                        { headers: { Authorization: `Bearer ${token}` } }),
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/matches`,
+                        { headers: { Authorization: `Bearer ${token}` } }),
                 ]);
 
-                if (meRes.status === 401) { router.push("/auth"); return; }
-
-                const meData = await meRes.json();
                 const msgData = await msgRes.json();
                 const matchData = await matchRes.json();
 
-                setMe(meData.user._id);
+
                 setMessages(msgData.messages || []);
 
                 const thisMatch = matchData.matches?.find((m: { _id: string }) => m._id === matchId);
                 if (thisMatch) {
-                    const otherUser = thisMatch.users.find((u: MatchUser) => u._id !== meData.user._id);
+                    const otherUser = thisMatch.users.find((u: MatchUser) => u._id !== user?._id);
                     setOther(otherUser || null);
                 }
 
                 s = io(process.env.NEXT_PUBLIC_API_URL!, {
-                    auth: { token: meData.token },
+                    auth: { token }, // ✅ token from localStorage — always defined
                     withCredentials: true,
                 });
 
                 s.on("connect", () => s.emit("join_match", { matchId }));
-
-                // ← duplicate guard added here
                 s.on("receive_message", (msg: Message) => {
                     setMessages((prev) => {
                         if (prev.find((m) => m._id === msg._id)) return prev;
                         return [...prev, msg];
                     });
                 });
-
                 s.on("user_typing", () => {
                     setTyping(true);
                     setTimeout(() => setTyping(false), 2000);
@@ -97,11 +96,10 @@ export default function ChatPage() {
             }
         };
 
-        fetchData();
+        if (user) fetchData(); // ← only fetch when user is ready from context
 
-        // ← cleanup uses local s, not socket state
         return () => { s?.disconnect(); };
-    }, [matchId]); // ← only matchId, removed socket from deps
+    }, [matchId, user]);
     /* ── Send message ─────────────────────────────── */
     const sendMessage = useCallback(() => {
         const content = input.trim();
@@ -194,7 +192,7 @@ export default function ChatPage() {
                     ) : (
                         <div className="flex flex-col gap-3 py-4">
                             {messages.map((msg, i) => {
-                                const isMine = msg.sender._id === me;
+                                const isMine = msg.sender._id === user?._id;
                                 const showAvatar =
                                     !isMine &&
                                     (i === 0 || messages[i - 1].sender._id !== msg.sender._id);

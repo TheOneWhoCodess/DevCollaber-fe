@@ -32,9 +32,10 @@ export default function NotificationBell() {
 
     const fetchNotifications = async () => {
         try {
+            const token = localStorage.getItem("token");
             const res = await fetch(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/notifications`,
-                { credentials: "include" }
+                { headers: { Authorization: `Bearer ${token}` } }
             );
             const data = await res.json();
             setNotifications(data.notifications || []);
@@ -61,9 +62,10 @@ export default function NotificationBell() {
     }, []);
 
     const markAllRead = async () => {
+        const token = localStorage.getItem("token");
         await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/notifications/read-all`, {
             method: "PUT",
-            credentials: "include",
+            headers: { Authorization: `Bearer ${token}` },
         });
         setUnreadCount(0);
         setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -71,12 +73,15 @@ export default function NotificationBell() {
 
     const handleNotificationClick = async (n: Notification) => {
         if (!n.read) {
+            const token = localStorage.getItem("token");
             await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/notifications/${n._id}/read`, {
                 method: "PUT",
-                credentials: "include",
+                headers: { Authorization: `Bearer ${token}` },
             });
             setUnreadCount((c) => Math.max(0, c - 1));
-            setNotifications((prev) => prev.map((notif) => notif._id === n._id ? { ...notif, read: true } : notif));
+            setNotifications((prev) =>
+                prev.map((notif) => notif._id === n._id ? { ...notif, read: true } : notif)
+            );
         }
         setOpen(false);
         if (n.link) router.push(n.link);
@@ -102,14 +107,15 @@ export default function NotificationBell() {
                 <Bell size={16} className="text-cream/60" />
                 {unreadCount > 0 && (
                     <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-neon flex items-center justify-center">
-                        <span className="font-grotesk text-[8px] text-background">{unreadCount > 9 ? "9+" : unreadCount}</span>
+                        <span className="font-grotesk text-[8px] text-background">
+                            {unreadCount > 9 ? "9+" : unreadCount}
+                        </span>
                     </div>
                 )}
             </button>
 
             {open && (
                 <div className="absolute right-0 top-12 w-80 liquid-glass rounded-[24px] overflow-hidden z-50 shadow-xl">
-                    {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
                         <span className="font-grotesk text-[12px] uppercase text-cream">Notifications</span>
                         {unreadCount > 0 && (
@@ -122,7 +128,6 @@ export default function NotificationBell() {
                         )}
                     </div>
 
-                    {/* List */}
                     <div className="max-h-80 overflow-y-auto">
                         {notifications.length === 0 ? (
                             <div className="py-8 text-center">
@@ -135,12 +140,16 @@ export default function NotificationBell() {
                                     onClick={() => handleNotificationClick(n)}
                                     className={`w-full px-4 py-3 flex items-start gap-3 hover:bg-white/10 transition-colors text-left border-b border-white/5 ${!n.read ? "bg-neon/5" : ""}`}
                                 >
-                                    <span className="text-[16px] flex-shrink-0 mt-0.5">{typeIcons[n.type] || "🔔"}</span>
+                                    <span className="text-[16px] flex-shrink-0 mt-0.5">
+                                        {typeIcons[n.type] || "🔔"}
+                                    </span>
                                     <div className="flex-1 min-w-0">
                                         <p className="font-grotesk text-[11px] uppercase text-cream truncate">{n.title}</p>
                                         <p className="font-mono text-[10px] text-cream/50 leading-relaxed">{n.body}</p>
                                     </div>
-                                    <span className="font-mono text-[9px] text-cream/20 flex-shrink-0">{timeAgo(n.createdAt)}</span>
+                                    <span className="font-mono text-[9px] text-cream/20 flex-shrink-0">
+                                        {timeAgo(n.createdAt)}
+                                    </span>
                                 </button>
                             ))
                         )}

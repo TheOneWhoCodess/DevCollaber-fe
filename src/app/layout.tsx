@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/src/lib/AuthContext";
 
 export const metadata: Metadata = {
   title: "DevCollaber | Find Your Match",
@@ -22,7 +23,9 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-background text-cream overflow-x-hidden">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
