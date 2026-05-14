@@ -250,6 +250,15 @@ export default function ProjectDetailPage() {
                     {isOwner && (
                         <div className="flex gap-3 mb-6">
                             <button
+                                onClick={() => router.push(`/projects/${id}/room`)}
+                                className="flex-1 py-4 rounded-[16px] bg-neon text-background font-grotesk text-[12px] uppercase tracking-widest hover:bg-neon/90 transition-colors"
+                            >
+                                Enter Room →
+                            </button>
+                            <button onClick={() => router.push(`/projects/${id}/applications`)}>
+                                View Applications
+                            </button>
+                            <button
                                 onClick={() => router.push(`/projects/${id}/applications`)}
                                 className="flex-1 liquid-glass rounded-[16px] py-4 font-grotesk text-[12px] uppercase text-cream hover:bg-white/10 transition-colors"
                             >

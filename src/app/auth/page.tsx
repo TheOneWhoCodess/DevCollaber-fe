@@ -29,6 +29,9 @@ export default function AuthPage() {
         if (!data.token) throw new Error("No token received from server");
 
         localStorage.setItem("token", data.token);
+
+        // ✅ wait for localStorage write to complete before navigating
+        await new Promise(resolve => setTimeout(resolve, 100));
         router.push(data.isNewUser ? "/profile-setup" : "/discover");
     };
 
@@ -55,19 +58,15 @@ export default function AuthPage() {
     const handleGoogleLogin = async () => {
         setLoading(true);
         setError("");
-
         try {
-            if (isMobile()) {
-                // ✅ Redirect flow for mobile — no popup needed
-                await signInWithRedirect(auth, googleProvider);
-            } else {
-                // ✅ Popup flow for desktop
-                const result = await signInWithPopup(auth, googleProvider);
-                const idToken = await result.user.getIdToken();
-                await sendTokenToBackend(idToken);
-            }
+            const result = await signInWithPopup(auth, googleProvider);
+            const idToken = await result.user.getIdToken();
+            await sendTokenToBackend(idToken);
         } catch (err: any) {
-            if (
+            if (err.code === "auth/popup-blocked") {
+                // Safari in-app browser fallback
+                await signInWithRedirect(auth, googleProvider);
+            } else if (
                 err.code === "auth/popup-closed-by-user" ||
                 err.code === "auth/cancelled-popup-request"
             ) {

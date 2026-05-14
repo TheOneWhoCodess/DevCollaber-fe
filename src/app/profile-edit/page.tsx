@@ -6,6 +6,7 @@ import { useAuth } from "@/src/lib/useAuth";
 import AuthGuard from "@/src/components/AuthGuard";
 import { Camera, LogOut, Check } from "lucide-react";
 import { Share } from "lucide-react";
+import GitHubStats from "@/src/components/GitHubStats.tsx";
 const ROLES = ["frontend", "backend", "fullstack", "devops", "ml", "mobile"];
 const PROJECT_TYPES = ["saas", "opensource", "startup", "sideproject"];
 const COMMITMENTS = ["parttime", "fulltime", "flexible"];
@@ -463,6 +464,12 @@ export default function ProfileEditPage() {
                                     placeholder="https://github.com/..."
                                     className="w-full liquid-glass rounded-[12px] px-4 py-3 font-mono text-[12px] text-cream placeholder:text-cream/20 bg-transparent outline-none"
                                 />
+
+                                {form.github && (
+                                    <div className="mt-4">
+                                        <GitHubStats username={form.github.replace("https://github.com/", "")} />
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <Label>LinkedIn URL</Label>

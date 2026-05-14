@@ -1,5 +1,5 @@
 import { Github, ExternalLink } from "lucide-react";
-
+import GitHubStats from "@/src/components/GitHubStats.tsx";
 async function getProfile(username: string) {
     try {
         const res = await fetch(
@@ -82,7 +82,7 @@ export default async function PublicProfilePage({ params }: { params: { username
                             <p className="font-mono text-[12px] text-cream/70 leading-relaxed uppercase">{user.bio}</p>
                         </div>
                     )}
-
+                    {user.github && <GitHubStats username={user.github} />}
                     {/* Skills */}
                     {user.skills?.length > 0 && (
                         <div className="mb-6">
