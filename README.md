@@ -1,227 +1,326 @@
 # DevCollab — Frontend
 
-A Next.js 15 frontend for the DevCollab developer matchmaking platform. Tinder-style swiping for developers to find co-founders and collaborators.
+> **Next.js 15 + TypeScript + Tailwind CSS** client for the DevCollab developer matching platform.
+
+---
+
+## Table of Contents
+
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Pages & Routes](#pages--routes)
+- [Key Components](#key-components)
+- [Auth Architecture](#auth-architecture)
+- [State Management](#state-management)
+- [Deployment](#deployment)
 
 ---
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Animations**: Framer Motion (swipe gestures)
-- **Auth**: Firebase (Google OAuth popup)
-- **Real-time**: Socket.io client
-- **Icons**: Lucide React
-- **Fonts**: Anton (headings), Condiment (accents), system monospace (body)
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 15 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| Auth | Firebase Auth (Google OAuth) + JWT |
+| State | React Context (AuthContext) |
+| Realtime | Socket.io client |
+| HTTP | Native `fetch` with `Authorization: Bearer` |
+| Deploy | Vercel |
 
 ---
 
 ## Project Structure
 
 ```
-client/
-├── src/
-│   ├── app/
-│   │   ├── auth/
-│   │   │   └── page.tsx          # Google login page
-│   │   ├── profile-setup/
-│   │   │   └── page.tsx          # First-time profile creation
-│   │   ├── profile-edit/
-│   │   │   └── page.tsx          # Edit profile + avatar upload + logout
-│   │   ├── discover/
-│   │   │   └── page.tsx          # Swipe card stack with filters
-│   │   ├── matches/
-│   │   │   └── page.tsx          # Matches list
-│   │   ├── chat/
-│   │   │   └── [matchId]/
-│   │   │       └── page.tsx      # Real-time chat
-│   │   ├── globals.css           # Tailwind + liquid glass CSS
-│   │   ├── layout.tsx            # Root layout with fonts
-│   │   └── page.tsx              # Landing page (4 sections)
-│   ├── components/
-│   │   ├── AuthGuard.tsx         # Redirects unauthenticated users
-│   │   ├── SwipeCard.tsx         # Draggable profile card (Framer Motion)
-│   │   └── MatchPopup.tsx        # Match celebration modal
-│   └── lib/
-│       ├── firebase.ts           # Firebase app init
-│       └── useAuth.ts            # Auth hook (checks session, returns user)
-├── .env.local                    # Environment variables
-├── tailwind.config.ts            # Custom colors + fonts
-├── next.config.ts
-└── tsconfig.json
+src/
+├── app/
+│   ├── layout.tsx              # Root layout — wraps AuthProvider
+│   ├── page.tsx                # Landing page
+│   ├── auth/
+│   │   └── page.tsx            # Google sign-in page
+│   ├── profile-setup/
+│   │   └── page.tsx            # First-time profile completion
+│   ├── discover/
+│   │   └── page.tsx            # Swipeable discover feed
+│   ├── matches/
+│   │   └── page.tsx            # Match list
+│   ├── chat/
+│   │   └── [matchId]/
+│   │       └── page.tsx        # Real-time chat
+│   ├── profile-edit/
+│   │   └── page.tsx            # Edit profile + GitHub preview
+│   ├── projects/
+│   │   ├── page.tsx            # Browse projects
+│   │   ├── new/page.tsx        # Create project
+│   │   ├── mine/page.tsx       # My projects
+│   │   └── [id]/
+│   │       ├── page.tsx        # Project detail
+│   │       ├── applications/   # Review applications
+│   │       └── room/           # Project room (tasks/links/members)
+│   └── u/
+│       └── [username]/
+│           └── page.tsx        # Public profile
+├── components/
+│   ├── AuthGuard.tsx           # Protects pages — redirects if unauthenticated
+│   ├── SwipeCard.tsx           # Draggable profile card
+│   ├── MatchPopup.tsx          # Match celebration modal
+│   ├── NotificationBell.tsx    # Live notification dropdown
+│   ├── OnboardingTour.tsx      # First-time user walkthrough
+│   ├── GitHubStats.tsx         # GitHub repos + language breakdown
+│   └── room/
+│       ├── TaskBoard.tsx       # Kanban board
+│       ├── LinkVault.tsx       # Shared links
+│       └── MemberList.tsx      # Room members
+└── lib/
+    ├── AuthContext.tsx         # Global auth state (single source of truth)
+    ├── firebase.ts             # Firebase app + Google provider init
+    └── useAuth.ts              # (deprecated — use AuthContext)
+
+middleware.ts                   # Sets COOP header for Google auth popup
+next.config.ts                  # Next.js config
 ```
 
 ---
 
 ## Getting Started
 
-### 1. Install dependencies
+### Prerequisites
+
+- Node.js v18+
+- A running DevCollab backend (`http://localhost:5000`)
+- Firebase project with Google Auth enabled
+
+### Installation
 
 ```bash
-cd client
+# Clone the repo
+git clone https://github.com/your-username/devcollab-client.git
+cd devcollab-client
+
+# Install dependencies
 npm install
-```
 
-### 2. Set up environment variables
+# Copy env template
+cp .env.example .env.local
+# Fill in your environment variables (see below)
 
-Create a `.env.local` file in the `client/` directory:
-
-```env
-# Firebase (client-side)
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-
-# Backend API
-NEXT_PUBLIC_API_URL=http://localhost:5000
-```
-
-### 3. Firebase setup
-
-1. Go to **Firebase Console → Authentication → Sign-in method**
-2. Enable **Google** provider
-3. Add `localhost` to authorized domains (it's there by default for dev)
-
-### 4. Run the dev server
-
-```bash
+# Start development server
 npm run dev
 ```
 
-App runs on `http://localhost:3000`
+Client runs on `http://localhost:3000`.
 
 ---
 
-## Pages
+## Environment Variables
 
-### `/` — Landing Page
-4-section marketing page with video backgrounds served from CloudFront. Liquid glass UI effects throughout. "Get Started" button routes to `/auth`.
+Create a `.env.local` file in the root:
 
-### `/auth` — Login
-Single Google OAuth button. On success:
-- **New user** → redirected to `/profile-setup`
-- **Existing user** → redirected to `/discover`
+```env
+# Backend API URL
+NEXT_PUBLIC_API_URL=http://localhost:5000
 
-Flow: Firebase popup → get ID token → POST to `/api/auth/google` → receive JWT cookie.
-
-### `/profile-setup` — First-time Setup
-Form to fill role, skills, bio, project idea, commitment level, GitHub, LinkedIn, location. Runs once after first login.
-
-### `/discover` — Swipe Feed
-- Fetches profiles from `/api/profile/discover`
-- Card stack with drag gestures (Framer Motion) + like/pass/superlike buttons
-- Swipe right = like, left = pass, up = superlike
-- Match popup appears on mutual like (via socket `new_match` event)
-- Role filter dropdown
-- Auto-refetches when stack runs low
-
-### `/matches` — Matches List
-All mutual matches sorted by most recent. Shows name, role, top 3 skills, match score, time ago. Click any match to open chat.
-
-### `/chat/[matchId]` — Real-time Chat
-- Loads message history from `/api/messages/:matchId`
-- Socket.io for real-time messaging
-- Typing indicator (animated dots)
-- Messages grouped by sender
-- Enter to send
-
-### `/profile-edit` — Edit Profile
-Same fields as setup but pre-filled with existing data. Additional features:
-- **Avatar upload** → sends to backend → Cloudinary
-- **Availability toggle** → controls visibility in discover feed
-- **Logout** button
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSy...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-app.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-app.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abc123
+```
 
 ---
 
-## Design System
+## Pages & Routes
 
-### Colors
-```
-background: #010828  (deep navy)
-cream:      #EFF4FF  (off-white text)
-neon:       #6FFF00  (bright green accents)
-```
-
-### Fonts
-```
-font-grotesk:   Anton       — headings, nav, labels
-font-condiment: Condiment   — cursive accent overlays
-font-mono:      system mono — body text, descriptions
-```
-
-### Liquid Glass Effect
-Applied via `.liquid-glass` CSS class on cards, nav, buttons:
-```css
-.liquid-glass {
-  background: rgba(255, 255, 255, 0.01);
-  backdrop-filter: blur(4px);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
-}
-```
-With a `::before` gradient border using CSS mask compositing.
-
----
-
-## Auth Flow
-
-```
-User clicks "Continue with Google"
-    → Firebase signInWithPopup
-    → Get Firebase ID token
-    → POST /api/auth/google with idToken
-    → Backend verifies via Firebase Admin SDK
-    → Backend creates/finds user in MongoDB
-    → Backend sets JWT httpOnly cookie
-    → Frontend redirects based on isNewUser flag
-```
-
-All protected pages are wrapped in `<AuthGuard>` which calls `/api/auth/me` on mount and redirects to `/auth` if unauthenticated.
+| Route | Auth | Description |
+|-------|------|-------------|
+| `/` | ❌ | Landing page |
+| `/auth` | ❌ | Google sign-in |
+| `/profile-setup` | ✅ | First-time profile setup (new users only) |
+| `/discover` | ✅ | Swipeable developer feed |
+| `/matches` | ✅ | Your matches list |
+| `/chat/:matchId` | ✅ | Real-time chat with a match |
+| `/profile-edit` | ✅ | Edit your developer profile |
+| `/projects` | ✅ | Browse all open projects |
+| `/projects/new` | ✅ | Post a new project |
+| `/projects/mine` | ✅ | Your posted projects |
+| `/projects/:id` | ✅ | Project detail + apply |
+| `/projects/:id/applications` | ✅ | Review applicants (owner only) |
+| `/projects/:id/room` | ✅ | Project room (members only) |
+| `/u/:username` | ✅ | Public developer profile |
 
 ---
 
 ## Key Components
 
-### `SwipeCard.tsx`
-Uses Framer Motion `useMotionValue` and `useTransform` for drag tracking. Thresholds:
-- `x > 100` → like (exit right)
-- `x < -100` → pass (exit left)
-- `y < -100` → superlike (exit up)
-- Otherwise → snap back with spring animation
+### `AuthGuard`
+Wraps all protected pages. Reads from `AuthContext` — if user is not authenticated after loading, redirects to `/auth`.
 
-### `AuthGuard.tsx`
-Wraps any page. Calls `useAuth()` hook — shows spinner while checking session, redirects to `/auth` if not logged in.
-
-### `useAuth.ts`
-Custom hook that fetches `/api/auth/me` on mount. Returns `{ user, loading }`. Used by AuthGuard and anywhere the logged-in user's data is needed.
-
----
-
-## Tailwind Config
-
-Custom extensions in `tailwind.config.ts`:
-
-```ts
-fontFamily: {
-  grotesk:   ["Anton", "sans-serif"],
-  condiment: ["Condiment", "cursive"],
-  mono:      ["ui-monospace", ...system fonts],
-},
-colors: {
-  background: "#010828",
-  cream:      "#EFF4FF",
-  neon:       "#6FFF00",
+```tsx
+// Usage
+export default function ProtectedPage() {
+  return (
+    <AuthGuard>
+      <YourPageContent />
+    </AuthGuard>
+  );
 }
 ```
 
-Content paths point to `src/`:
-```ts
-content: [
-  "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-  "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-  "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-]
+### `NotificationBell`
+Polls `/api/notifications` every 30 seconds. Shows unread count badge. Dropdown with mark-all-read support.
+
+### `SwipeCard`
+Draggable profile card with gesture support. Triggers `like`, `pass`, or `superlike` callbacks on release.
+
+### `GitHubStats`
+Fetches live GitHub data via the backend proxy. Displays:
+- Follower count + repo count + contribution total
+- Language breakdown bar with percentages
+- Top 4 repos with star/fork counts
+
+### `TaskBoard`
+Kanban board with 3 columns (Todo / In Progress / Done). Optimistic UI updates — status changes instantly, syncs to server in background.
+
+---
+
+## Auth Architecture
+
+DevCollab uses a **single `AuthContext`** as the source of truth for auth state. This eliminates race conditions from multiple components reading `localStorage` independently.
+
 ```
+App startup
+    │
+    ▼
+AuthContext mounts (layout.tsx)
+    │
+    ├─ reads localStorage token
+    ├─ calls GET /api/auth/me
+    ├─ sets user in React state
+    └─ setLoading(false)
+         │
+         ▼
+All pages use useAuth() from AuthContext
+    │
+    ├─ loading=true  → show spinner
+    ├─ user=null     → redirect to /auth (via AuthGuard)
+    └─ user=object   → render page
+```
+
+### Login Flow
+```
+handleGoogleLogin()
+    │
+    ├─ signInWithPopup(auth, googleProvider)
+    │       │
+    │       ├─ success → get idToken → POST /api/auth/google
+    │       │                │
+    │       │                └─ save JWT to localStorage
+    │       │                   setUser(data.user) in AuthContext
+    │       │                   router.push('/discover')
+    │       │
+    │       └─ auth/popup-blocked → signInWithRedirect()
+    │                                   │
+    │                                   └─ handled by useEffect on return
+    │
+    └─ auth/popup-closed-by-user → show error message
+```
+
+### Making Authenticated Requests
+Always use the JWT from `localStorage`:
+
+```ts
+const token = localStorage.getItem("token");
+
+const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/some/route`, {
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  },
+});
+```
+
+> ⚠️ Never use `credentials: "include"` — this app uses JWT, not cookies.
+
+---
+
+## State Management
+
+| State | Location | Scope |
+|-------|----------|-------|
+| Authenticated user | `AuthContext` | Global — entire app |
+| Discover profiles | `DiscoverPage` local state | Page only |
+| Chat messages | `ChatPage` local state | Page only |
+| Notifications | `NotificationBell` local state | Component only |
+| Project room data | Room component local state | Component only |
+
+No external state library (Redux, Zustand) is needed — `AuthContext` handles the only truly global state.
+
+---
+
+## Important Configuration Files
+
+### `middleware.ts`
+Sets `Cross-Origin-Opener-Policy: same-origin-allow-popups` on every response. Required for Google auth popup to work correctly.
+
+```ts
+// middleware.ts
+export function middleware(request: NextRequest) {
+  const response = NextResponse.next();
+  response.headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  return response;
+}
+```
+
+### `next.config.ts`
+```ts
+const nextConfig: NextConfig = {
+  reactStrictMode: false, // disabled to prevent double useEffect execution in dev
+};
+```
+
+> `reactStrictMode` is disabled because double-invocation of effects causes auth state race conditions in development.
+
+---
+
+## Deployment (Vercel)
+
+1. Connect GitHub repo to Vercel
+2. Set **Framework Preset** to `Next.js`
+3. Add environment variables in Vercel dashboard:
+   - `NEXT_PUBLIC_API_URL` → your Render backend URL
+   - All `NEXT_PUBLIC_FIREBASE_*` variables
+4. Enable **Auto-Deploy** on push to `main`
+
+### After Deployment
+Add your Vercel domain to Firebase Console:
+- Go to **Authentication → Settings → Authorized Domains**
+- Add `your-app.vercel.app`
+
+---
+
+## Scripts
+
+```bash
+npm run dev      # Start dev server (Turbopack)
+npm run build    # Production build + type check
+npm start        # Start production server
+npm run lint     # ESLint
+```
+
+---
+
+## Common Issues
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Redirected back to `/auth` after login | `AuthContext` not wrapping layout | Ensure `<AuthProvider>` is in `layout.tsx` |
+| `401` on all API calls | Missing `Authorization` header | Use `localStorage.getItem("token")` in fetch headers |
+| Google popup blocked | COOP header missing | Check `middleware.ts` is at project root |
+| `Failed to fetch` | Backend not running or wrong `NEXT_PUBLIC_API_URL` | Verify `.env.local` and backend is started |
+| Build fails with type errors | Mismatched imports from old `useAuth.ts` | Replace all imports with `@/src/lib/AuthContext` |
