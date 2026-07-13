@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Sparkles, Lightbulb } from "lucide-react";
+import { MessageCircle, Sparkles, Lightbulb, Bot, CheckCircle2 } from "lucide-react";
 import AuthGuard from "@/src/components/AuthGuard";
 import NotificationBell from "@/src/components/NotificationBell";
 import { useAuth } from "@/src/lib/AuthContext";
@@ -23,6 +23,14 @@ interface ProjectIdea {
     techStack: string[];
 }
 
+interface Concierge {
+    status: "none" | "investigating" | "ready" | "failed";
+    action?: "icebreaker" | "project_idea" | "follow_up_nudge";
+    reasoning?: string;
+    icebreaker?: string;
+    toolsUsed?: string[];
+}
+
 interface Match {
     _id: string;
     users: MatchUser[];
@@ -31,6 +39,7 @@ interface Match {
     explanationStatus: "pending" | "ready" | "failed";
     projectIdea?: ProjectIdea;
     projectIdeaStatus: "none" | "pending" | "ready" | "failed";
+    concierge?: Concierge;
     status: string;
     matchedAt: string;
 }
@@ -107,16 +116,81 @@ export default function MatchesPage() {
             );
         };
 
+        const handleConciergeReady = (data: {
+            matchId: string;
+            action: "icebreaker" | "project_idea" | "follow_up_nudge";
+            reasoning: string;
+            toolsUsed: string[];
+            icebreaker?: string;
+            projectIdea?: ProjectIdea;
+        }) => {
+            setMatches((prev) =>
+                prev.map((m) => {
+                    if (m._id !== data.matchId) return m;
+                    const updated: Match = {
+                        ...m,
+                        concierge: {
+                            status: "ready",
+                            action: data.action,
+                            reasoning: data.reasoning,
+                            toolsUsed: data.toolsUsed,
+                            icebreaker: data.icebreaker,
+                        },
+                    };
+                    // If the agent decided on a project idea, also populate
+                    // the existing project idea section so it renders there
+                    // without duplicating the display logic.
+                    if (data.action === "project_idea" && data.projectIdea) {
+                        updated.projectIdea = data.projectIdea;
+                        updated.projectIdeaStatus = "ready";
+                    }
+                    return updated;
+                })
+            );
+        };
+
         socket.on("match_explanation_ready", handleExplanation);
         socket.on("project_idea_ready", handleProjectIdea);
+        socket.on("concierge_ready", handleConciergeReady);
         return () => {
             socket.off("match_explanation_ready", handleExplanation);
             socket.off("project_idea_ready", handleProjectIdea);
+            socket.off("concierge_ready", handleConciergeReady);
         };
     }, [socket]);
 
     const getOther = (match: Match) =>
         match.users.find((u) => u._id !== user?._id) || match.users[0];
+
+    const runConcierge = async (matchId: string) => {
+        setMatches((prev) =>
+            prev.map((m) =>
+                m._id === matchId
+                    ? { ...m, concierge: { ...(m.concierge || {}), status: "investigating" } }
+                    : m
+            )
+        );
+        try {
+            const token = localStorage.getItem("token");
+            await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/matches/${matchId}/concierge`,
+                {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${token}` },
+                }
+            );
+            // Result arrives via the concierge_ready socket event.
+        } catch (err) {
+            console.error(err);
+            setMatches((prev) =>
+                prev.map((m) =>
+                    m._id === matchId
+                        ? { ...m, concierge: { ...(m.concierge || {}), status: "failed" } }
+                        : m
+                )
+            );
+        }
+    };
 
     const generateProjectIdea = async (matchId: string) => {
         // Optimistic — flip to pending immediately so the shimmer shows
@@ -237,6 +311,96 @@ export default function MatchesPage() {
                                                 <p className="font-mono text-[10px] text-cream/25 leading-relaxed">
                                                     {match.matchScore}% skill overlap
                                                 </p>
+                                            )}
+                                        </div>
+
+                                        {/* AI Match Concierge — agentic feature. The model investigates
+                                            the match (chat history, GitHub activity) via tool calls
+                                            before deciding what to do, rather than always generating
+                                            the same fixed content. */}
+                                        <div
+                                            className="border-t border-white/5 px-5 py-3"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            {(!match.concierge || match.concierge.status === "none") && (
+                                                <button
+                                                    onClick={() => runConcierge(match._id)}
+                                                    className="flex items-center gap-2 font-grotesk text-[10px] uppercase tracking-widest text-blue-300/80 hover:text-blue-300 transition-colors"
+                                                >
+                                                    <Bot size={12} />
+                                                    Ask AI Concierge
+                                                </button>
+                                            )}
+
+                                            {match.concierge?.status === "investigating" && (
+                                                <div className="flex items-start gap-2 animate-pulse">
+                                                    <Bot size={11} className="text-blue-300/60 mt-0.5 flex-shrink-0" />
+                                                    <div className="flex-1">
+                                                        <p className="font-mono text-[9px] uppercase text-blue-300/50 mb-1.5">
+                                                            Agent investigating this match...
+                                                        </p>
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <div className="h-2 bg-white/10 rounded-full w-3/5" />
+                                                            <div className="h-2 bg-white/10 rounded-full w-full" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {match.concierge?.status === "ready" && (
+                                                <div className="flex items-start gap-2">
+                                                    <Bot size={11} className="text-blue-300/80 mt-0.5 flex-shrink-0" />
+                                                    <div className="flex-1">
+                                                        {/* Reasoning trail — proves the agent decided this,
+                                                            not the frontend */}
+                                                        <p className="font-mono text-[9px] text-blue-300/50 italic mb-1.5">
+                                                            "{match.concierge.reasoning}"
+                                                        </p>
+                                                        {match.concierge.toolsUsed && match.concierge.toolsUsed.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1 mb-2">
+                                                                {match.concierge.toolsUsed.map((tool) => (
+                                                                    <span
+                                                                        key={tool}
+                                                                        className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 font-mono text-[8px] uppercase text-blue-300/60"
+                                                                    >
+                                                                        <CheckCircle2 size={8} />
+                                                                        {tool}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+
+                                                        {match.concierge.action === "icebreaker" && match.concierge.icebreaker && (
+                                                            <div className="liquid-glass rounded-[12px] p-3">
+                                                                <p className="font-mono text-[10px] text-cream/70 leading-relaxed">
+                                                                    {match.concierge.icebreaker}
+                                                                </p>
+                                                            </div>
+                                                        )}
+
+                                                        {match.concierge.action === "project_idea" && (
+                                                            <p className="font-mono text-[9px] text-cream/30 uppercase">
+                                                                See project idea below
+                                                            </p>
+                                                        )}
+
+                                                        {match.concierge.action === "follow_up_nudge" && (
+                                                            <p className="font-mono text-[9px] text-cream/30 uppercase">
+                                                                No content needed right now
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {match.concierge?.status === "failed" && (
+                                                <button
+                                                    onClick={() => runConcierge(match._id)}
+                                                    className="flex items-center gap-2 font-grotesk text-[10px] uppercase tracking-widest text-red-400/70 hover:text-red-400 transition-colors"
+                                                >
+                                                    <Bot size={12} />
+                                                    Agent failed — Retry
+                                                </button>
                                             )}
                                         </div>
 
