@@ -6,6 +6,7 @@ import { MessageCircle, Sparkles, Lightbulb, Bot, CheckCircle2 } from "lucide-re
 import AuthGuard from "@/src/components/AuthGuard";
 import NotificationBell from "@/src/components/NotificationBell";
 import UpgradeModal from "@/src/components/upgradeModal";
+import MatchProfileModal from "@/src/components/MatchProfileModal";
 import { useAuth } from "@/src/lib/AuthContext";
 import { useSocket } from "@/src/lib/SocketContext";
 
@@ -16,6 +17,7 @@ interface MatchUser {
     role: string;
     skills: string[];
     bio: string;
+    github?: string;
 }
 
 interface ProjectIdea {
@@ -72,6 +74,12 @@ export default function MatchesPage() {
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(true);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+    const [viewingMatch, setViewingMatch] = useState<Match | null>(null);
+
+    // Current user's own skills, used purely client-side to highlight overlap
+    // on match cards and in the profile modal — no extra fetch needed.
+    const mySkills: string[] = (user as unknown as { skills?: string[] })?.skills || [];
+    const mySkillsLower = new Set(mySkills.map((s) => s.toLowerCase()));
 
     useEffect(() => {
         if (!user) return;
@@ -139,9 +147,6 @@ export default function MatchesPage() {
                             icebreaker: data.icebreaker,
                         },
                     };
-                    // If the agent decided on a project idea, also populate
-                    // the existing project idea section so it renders there
-                    // without duplicating the display logic.
                     if (data.action === "project_idea" && data.projectIdea) {
                         updated.projectIdea = data.projectIdea;
                         updated.projectIdeaStatus = "ready";
@@ -187,8 +192,6 @@ export default function MatchesPage() {
                 if (data.limitReached) {
                     setShowUpgradeModal(true);
                 }
-                // Revert to "none" rather than leaving it stuck on
-                // "investigating" — the request never actually started.
                 setMatches((prev) =>
                     prev.map((m) =>
                         m._id === matchId
@@ -198,7 +201,6 @@ export default function MatchesPage() {
                 );
                 return;
             }
-            // Result arrives via the concierge_ready socket event.
         } catch (err) {
             console.error(err);
             setMatches((prev) =>
@@ -211,10 +213,6 @@ export default function MatchesPage() {
         }
     };
 
-    // Navigates to the chat with the icebreaker pre-filled rather than
-    // sending it directly from here — avoids duplicating whatever the
-    // chat page's actual send logic is (REST vs socket emit), and lets
-    // the person glance at/edit it before it actually sends.
     const sendIcebreaker = (matchId: string, text: string) => {
         router.push(`/chat/${matchId}?draft=${encodeURIComponent(text)}`);
     };
@@ -243,8 +241,6 @@ export default function MatchesPage() {
                 );
                 return;
             }
-            // Actual result arrives via the project_idea_ready socket event —
-            // nothing else to do here on success.
         } catch (err) {
             console.error(err);
             setMatches((prev) =>
@@ -297,25 +293,48 @@ export default function MatchesPage() {
                                     >
                                         {/* Top row */}
                                         <div className="p-5 flex items-center gap-4">
-                                            <div className="w-14 h-14 rounded-[16px] bg-neon/10 border border-neon/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                            {/* Avatar — tapping opens the limited-info profile modal
+                                                instead of navigating to chat. */}
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setViewingMatch(match); }}
+                                                className="w-14 h-14 rounded-[16px] bg-neon/10 border border-neon/20 flex items-center justify-center flex-shrink-0 overflow-hidden hover:border-neon/50 transition-colors"
+                                            >
                                                 {other.avatar ? (
                                                     <img src={other.avatar} alt={other.name} className="w-full h-full object-cover" />
                                                 ) : (
                                                     <span className="font-grotesk text-[18px] text-neon">{initials}</span>
                                                 )}
-                                            </div>
+                                            </button>
 
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <h3 className="font-grotesk text-[16px] uppercase text-cream truncate">{other.name}</h3>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setViewingMatch(match); }}
+                                                        className="font-grotesk text-[16px] uppercase text-cream truncate hover:text-neon transition-colors text-left"
+                                                    >
+                                                        {other.name}
+                                                    </button>
                                                     <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-mono uppercase border ${roleColors[other.role] || "bg-white/10 text-cream/60 border-white/20"}`}>
                                                         {other.role}
                                                     </span>
                                                 </div>
+                                                {/* Skills — shared ones (with your own profile) highlighted,
+                                                    so you can tell at a glance why this could be a fit. */}
                                                 <div className="flex gap-1 flex-wrap">
-                                                    {other.skills?.slice(0, 3).map((s) => (
-                                                        <span key={s} className="px-2 py-0.5 rounded-full liquid-glass font-mono text-[9px] uppercase text-cream/50">{s}</span>
-                                                    ))}
+                                                    {other.skills?.slice(0, 3).map((s) => {
+                                                        const shared = mySkillsLower.has(s.toLowerCase());
+                                                        return (
+                                                            <span
+                                                                key={s}
+                                                                className={`px-2 py-0.5 rounded-full font-mono text-[9px] uppercase ${shared
+                                                                    ? "bg-neon/15 border border-neon/40 text-neon"
+                                                                    : "liquid-glass text-cream/50"
+                                                                    }`}
+                                                            >
+                                                                {s}
+                                                            </span>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
 
@@ -333,7 +352,7 @@ export default function MatchesPage() {
                                         {/* AI Explanation strip */}
                                         <div
                                             className="border-t border-white/5 px-5 py-3 flex items-start gap-2"
-                                            onClick={(e) => e.stopPropagation()} // don't nav to chat when tapping explanation
+                                            onClick={(e) => e.stopPropagation()}
                                         >
                                             <Sparkles size={11} className="text-neon/50 mt-0.5 flex-shrink-0" />
                                             {match.explanationStatus === "pending" ? (
@@ -350,10 +369,7 @@ export default function MatchesPage() {
                                             )}
                                         </div>
 
-                                        {/* AI Match Concierge — agentic feature. The model investigates
-                                            the match (chat history, GitHub activity) via tool calls
-                                            before deciding what to do, rather than always generating
-                                            the same fixed content. */}
+                                        {/* AI Match Concierge */}
                                         <div
                                             className="border-t border-white/5 px-5 py-3"
                                             onClick={(e) => e.stopPropagation()}
@@ -387,8 +403,6 @@ export default function MatchesPage() {
                                                 <div className="flex items-start gap-2">
                                                     <Bot size={11} className="text-blue-300/80 mt-0.5 flex-shrink-0" />
                                                     <div className="flex-1">
-                                                        {/* Reasoning trail — proves the agent decided this,
-                                                            not the frontend */}
                                                         <p className="font-mono text-[9px] text-blue-300/50 italic mb-1.5">
                                                             "{match.concierge.reasoning}"
                                                         </p>
@@ -457,7 +471,7 @@ export default function MatchesPage() {
                                         {/* AI Project Idea section */}
                                         <div
                                             className="border-t border-white/5 px-5 py-3"
-                                            onClick={(e) => e.stopPropagation()} // don't nav to chat when tapping this section
+                                            onClick={(e) => e.stopPropagation()}
                                         >
                                             {match.projectIdeaStatus === "none" && (
                                                 <button
@@ -549,6 +563,21 @@ export default function MatchesPage() {
                     isOpen={showUpgradeModal}
                     onClose={() => setShowUpgradeModal(false)}
                 />
+
+                {/* Limited-info profile quick-view */}
+                {viewingMatch && (
+                    <MatchProfileModal
+                        user={getOther(viewingMatch)}
+                        matchScore={viewingMatch.matchScore}
+                        currentUserSkills={mySkills}
+                        onClose={() => setViewingMatch(null)}
+                        onMessage={() => {
+                            const matchId = viewingMatch._id;
+                            setViewingMatch(null);
+                            router.push(`/chat/${matchId}`);
+                        }}
+                    />
+                )}
             </main>
         </AuthGuard>
     );
