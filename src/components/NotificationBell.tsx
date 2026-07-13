@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
+import { useSocket } from "@/src/lib/SocketContext";
 
 interface Notification {
     _id: string;
@@ -21,10 +22,12 @@ const typeIcons: Record<string, string> = {
     new_application: "📋",
     application_accepted: "✅",
     application_rejected: "❌",
+    project_invite: "🚀",
 };
 
 export default function NotificationBell() {
     const router = useRouter();
+    const { socket } = useSocket();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [open, setOpen] = useState(false);
@@ -45,17 +48,37 @@ export default function NotificationBell() {
         }
     };
 
+    // Initial fetch + 30s fallback poll (in case socket misses anything)
     useEffect(() => {
         fetchNotifications();
         const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
     }, []);
 
+    // Real-time: prepend new notification without refetching the whole list
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleNew = (notification: Notification) => {
+            setNotifications((prev) => [notification, ...prev]);
+            setUnreadCount((c) => c + 1);
+
+            // Brief bell pulse — add then remove a CSS class
+            const bellEl = document.getElementById("notif-bell-icon");
+            if (bellEl) {
+                bellEl.classList.add("animate-bounce");
+                setTimeout(() => bellEl.classList.remove("animate-bounce"), 600);
+            }
+        };
+
+        socket.on("new_notification", handleNew);
+        return () => { socket.off("new_notification", handleNew); };
+    }, [socket]);
+
+    // Close dropdown on outside click
     useEffect(() => {
         const handleClick = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) {
-                setOpen(false);
-            }
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
         };
         document.addEventListener("mousedown", handleClick);
         return () => document.removeEventListener("mousedown", handleClick);
@@ -104,7 +127,7 @@ export default function NotificationBell() {
                 onClick={() => { setOpen(!open); if (!open) fetchNotifications(); }}
                 className="relative liquid-glass w-10 h-10 rounded-[12px] flex items-center justify-center hover:bg-white/10 transition-colors"
             >
-                <Bell size={16} className="text-cream/60" />
+                <Bell id="notif-bell-icon" size={16} className="text-cream/60" />
                 {unreadCount > 0 && (
                     <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-neon flex items-center justify-center">
                         <span className="font-grotesk text-[8px] text-background">

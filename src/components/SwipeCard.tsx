@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
-import { Github, ExternalLink, X, Star, Heart } from "lucide-react";
+import { Github, ExternalLink, X, Star, Heart, Sparkles } from "lucide-react";
 
 interface Profile {
     _id: string;
@@ -15,6 +15,7 @@ interface Profile {
     commitment: string;
     experience: number;
     github: string;
+    githubSummary?: string;
     location: string;
     eloScore: number;
     matchScore?: number;
@@ -38,24 +39,16 @@ export default function SwipeCard({ profile, onSwipe, isTop }: Props) {
     const handleDragEnd = () => {
         const xVal = x.get();
         const yVal = y.get();
-
-        if (yVal < -100) {
-            triggerSwipe("superlike", 0, -600);
-        } else if (xVal > 100) {
-            triggerSwipe("like", 600, 0);
-        } else if (xVal < -100) {
-            triggerSwipe("pass", -600, 0);
-        } else {
+        if (yVal < -100) triggerSwipe("superlike", 0, -600);
+        else if (xVal > 100) triggerSwipe("like", 600, 0);
+        else if (xVal < -100) triggerSwipe("pass", -600, 0);
+        else {
             animate(x, 0, { type: "spring", stiffness: 300 });
             animate(y, 0, { type: "spring", stiffness: 300 });
         }
     };
 
-    const triggerSwipe = (
-        action: "like" | "pass" | "superlike",
-        exitX: number,
-        exitY: number
-    ) => {
+    const triggerSwipe = (action: "like" | "pass" | "superlike", exitX: number, exitY: number) => {
         animate(x, exitX, { duration: 0.3 });
         animate(y, exitY, { duration: 0.3 });
         setTimeout(() => onSwipe(action), 300);
@@ -86,37 +79,23 @@ export default function SwipeCard({ profile, onSwipe, isTop }: Props) {
             onDragEnd={handleDragEnd}
             className="absolute inset-0 cursor-grab active:cursor-grabbing"
         >
-            {/* Like indicator */}
-            <motion.div
-                style={{ opacity: likeOpacity }}
-                className="absolute top-8 left-8 z-20 rotate-[-20deg] border-4 border-neon rounded-[12px] px-4 py-2"
-            >
+            {/* Swipe indicators */}
+            <motion.div style={{ opacity: likeOpacity }} className="absolute top-8 left-8 z-20 rotate-[-20deg] border-4 border-neon rounded-[12px] px-4 py-2">
                 <span className="font-grotesk text-[28px] uppercase text-neon">Like</span>
             </motion.div>
-
-            {/* Pass indicator */}
-            <motion.div
-                style={{ opacity: passOpacity }}
-                className="absolute top-8 right-8 z-20 rotate-[20deg] border-4 border-red-500 rounded-[12px] px-4 py-2"
-            >
+            <motion.div style={{ opacity: passOpacity }} className="absolute top-8 right-8 z-20 rotate-[20deg] border-4 border-red-500 rounded-[12px] px-4 py-2">
                 <span className="font-grotesk text-[28px] uppercase text-red-500">Nope</span>
             </motion.div>
-
-            {/* Superlike indicator */}
-            <motion.div
-                style={{ opacity: superlikeOpacity }}
-                className="absolute top-8 left-1/2 -translate-x-1/2 z-20 border-4 border-blue-400 rounded-[12px] px-4 py-2"
-            >
+            <motion.div style={{ opacity: superlikeOpacity }} className="absolute top-8 left-1/2 -translate-x-1/2 z-20 border-4 border-blue-400 rounded-[12px] px-4 py-2">
                 <span className="font-grotesk text-[28px] uppercase text-blue-400">Super</span>
             </motion.div>
 
             {/* Card */}
             <div className="liquid-glass rounded-[32px] h-full overflow-y-auto flex flex-col">
 
-                {/* Top section */}
+                {/* Header */}
                 <div className="relative p-6 pb-4">
                     <div className="flex items-start gap-4">
-                        {/* Avatar */}
                         <div className="w-20 h-20 rounded-[20px] bg-neon/10 border border-neon/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
                             {profile.avatar ? (
                                 <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
@@ -124,26 +103,16 @@ export default function SwipeCard({ profile, onSwipe, isTop }: Props) {
                                 <span className="font-grotesk text-[24px] text-neon">{initials}</span>
                             )}
                         </div>
-
-                        {/* Name + role */}
                         <div className="flex-1 min-w-0">
-                            <h2 className="font-grotesk text-[22px] uppercase text-cream leading-tight truncate">
-                                {profile.name}
-                            </h2>
+                            <h2 className="font-grotesk text-[22px] uppercase text-cream leading-tight truncate">{profile.name}</h2>
                             <span className={`inline-block mt-1 px-3 py-1 rounded-full text-[10px] font-mono uppercase border ${roleColors[profile.role] || "bg-white/10 text-cream/60 border-white/20"}`}>
                                 {profile.role}
                             </span>
                             <div className="flex items-center gap-3 mt-2">
-                                {profile.experience > 0 && (
-                                    <span className="font-mono text-[10px] text-cream/40 uppercase">{profile.experience}y exp</span>
-                                )}
-                                {profile.location && (
-                                    <span className="font-mono text-[10px] text-cream/40 uppercase">{profile.location}</span>
-                                )}
+                                {profile.experience > 0 && <span className="font-mono text-[10px] text-cream/40 uppercase">{profile.experience}y exp</span>}
+                                {profile.location && <span className="font-mono text-[10px] text-cream/40 uppercase">{profile.location}</span>}
                             </div>
                         </div>
-
-                        {/* Match score */}
                         {profile.matchScore !== undefined && (
                             <div className="flex flex-col items-center liquid-glass rounded-[16px] px-3 py-2">
                                 <span className="font-grotesk text-[18px] text-neon leading-none">{profile.matchScore}</span>
@@ -153,8 +122,18 @@ export default function SwipeCard({ profile, onSwipe, isTop }: Props) {
                     </div>
                 </div>
 
-                {/* Divider */}
                 <div className="mx-6 h-px bg-white/10" />
+
+                {/* GitHub AI summary — shown instead of raw stats on the swipe card */}
+                {profile.githubSummary && (
+                    <div className="mx-6 mt-4 liquid-glass rounded-[20px] p-4">
+                        <div className="flex items-center gap-1.5 mb-2">
+                            <Sparkles size={11} className="text-neon/70" />
+                            <p className="font-grotesk text-[9px] uppercase tracking-[0.2em] text-neon/70">GitHub</p>
+                        </div>
+                        <p className="font-mono text-[11px] text-cream/70 leading-relaxed">{profile.githubSummary}</p>
+                    </div>
+                )}
 
                 {/* Skills */}
                 {profile.skills?.length > 0 && (
@@ -203,7 +182,7 @@ export default function SwipeCard({ profile, onSwipe, isTop }: Props) {
                     </div>
                 )}
 
-                {/* GitHub */}
+                {/* GitHub link */}
                 {profile.github && (
                     <div className="px-6 pb-6">
                         <a
@@ -219,8 +198,7 @@ export default function SwipeCard({ profile, onSwipe, isTop }: Props) {
                         </a>
                     </div>
                 )}
-
-            </div>{/* end card */}
+            </div>
 
             {/* Action buttons */}
             <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-5">
@@ -243,7 +221,6 @@ export default function SwipeCard({ profile, onSwipe, isTop }: Props) {
                     <Heart size={22} className="text-neon" />
                 </button>
             </div>
-
         </motion.div>
     );
 }
