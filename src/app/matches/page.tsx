@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { MessageCircle, Sparkles, Lightbulb, Bot, CheckCircle2 } from "lucide-react";
 import AuthGuard from "@/src/components/AuthGuard";
 import NotificationBell from "@/src/components/NotificationBell";
+import UpgradeModal from "@/src/components/upgradeModal";
 import { useAuth } from "@/src/lib/AuthContext";
 import { useSocket } from "@/src/lib/SocketContext";
 
@@ -70,6 +71,7 @@ export default function MatchesPage() {
     const { socket } = useSocket();
     const [matches, setMatches] = useState<Match[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
     useEffect(() => {
         if (!user) return;
@@ -172,13 +174,30 @@ export default function MatchesPage() {
         );
         try {
             const token = localStorage.getItem("token");
-            await fetch(
+            const res = await fetch(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/matches/${matchId}/concierge`,
                 {
                     method: "POST",
                     headers: { Authorization: `Bearer ${token}` },
                 }
             );
+
+            if (res.status === 429) {
+                const data = await res.json();
+                if (data.limitReached) {
+                    setShowUpgradeModal(true);
+                }
+                // Revert to "none" rather than leaving it stuck on
+                // "investigating" — the request never actually started.
+                setMatches((prev) =>
+                    prev.map((m) =>
+                        m._id === matchId
+                            ? { ...m, concierge: { ...(m.concierge || {}), status: "none" } }
+                            : m
+                    )
+                );
+                return;
+            }
             // Result arrives via the concierge_ready socket event.
         } catch (err) {
             console.error(err);
@@ -201,20 +220,29 @@ export default function MatchesPage() {
     };
 
     const generateProjectIdea = async (matchId: string) => {
-        // Optimistic — flip to pending immediately so the shimmer shows
-        // right away instead of waiting on the round trip.
         setMatches((prev) =>
             prev.map((m) => (m._id === matchId ? { ...m, projectIdeaStatus: "pending" } : m))
         );
         try {
             const token = localStorage.getItem("token");
-            await fetch(
+            const res = await fetch(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/matches/${matchId}/project-idea`,
                 {
                     method: "POST",
                     headers: { Authorization: `Bearer ${token}` },
                 }
             );
+
+            if (res.status === 429) {
+                const data = await res.json();
+                if (data.limitReached) {
+                    setShowUpgradeModal(true);
+                }
+                setMatches((prev) =>
+                    prev.map((m) => (m._id === matchId ? { ...m, projectIdeaStatus: "none" } : m))
+                );
+                return;
+            }
             // Actual result arrives via the project_idea_ready socket event —
             // nothing else to do here on success.
         } catch (err) {
@@ -516,6 +544,11 @@ export default function MatchesPage() {
                         ))}
                     </div>
                 </div>
+
+                <UpgradeModal
+                    isOpen={showUpgradeModal}
+                    onClose={() => setShowUpgradeModal(false)}
+                />
             </main>
         </AuthGuard>
     );

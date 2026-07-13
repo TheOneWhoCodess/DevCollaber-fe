@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/src/lib/AuthContext";
 import { SocketProvider } from "@/src/lib/SocketContext";
+import { ThemeProvider } from "@/src/lib/themeContext";
 import HelpWidget from "@/src/components/HelpWidget";
 
 export const metadata: Metadata = {
@@ -22,10 +23,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </head>
             <body className="bg-background text-cream overflow-x-hidden">
                 <AuthProvider>
-                    <SocketProvider>
-                        {children}
-                        <HelpWidget />
-                    </SocketProvider>
+                    <ThemeProvider>
+                        <SocketProvider>
+                            {children}
+                            <HelpWidget />
+                        </SocketProvider>
+                    </ThemeProvider>
                 </AuthProvider>
             </body>
         </html>

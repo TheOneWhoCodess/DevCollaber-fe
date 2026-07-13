@@ -9,7 +9,7 @@ import AuthGuard from "@/src/components/AuthGuard";
 import OnboardingTour from "@/src/components/OnboardingTour";
 import NotificationBell from "@/src/components/NotificationBell";
 import { useSocket } from "@/src/lib/SocketContext";
-
+import UpgradeButton from "@/src/components/upgradeButton";
 interface Profile {
     _id: string;
     name: string;
@@ -147,6 +147,7 @@ export default function DiscoverPage() {
                         >
                             <MessageSquarePlus size={16} className="text-cream/60" />
                         </button>
+                        <UpgradeButton />
                     </div>
                 </div>
 

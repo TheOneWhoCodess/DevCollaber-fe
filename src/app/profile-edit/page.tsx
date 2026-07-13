@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AuthGuard from "@/src/components/AuthGuard";
 import { Camera, LogOut, Check, Share, Github, Sparkles, RefreshCw } from "lucide-react";
 import GitHubStats from "@/src/components/GitHubStats";
+import UpgradeModal from "@/src/components/upgradeModal";
 import { useAuth } from "@/src/lib/AuthContext";
 import { useSocket } from "@/src/lib/SocketContext";
 
@@ -32,6 +33,7 @@ export default function ProfileEditPage() {
     const [githubSummary, setGithubSummary] = useState("");
     const [syncingGithub, setSyncingGithub] = useState(false);
     const [syncDone, setSyncDone] = useState(false);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
     const [form, setForm] = useState({
         name: "", role: "", bio: "", skills: [] as string[],
@@ -126,6 +128,18 @@ export default function ProfileEditPage() {
                 method: "POST",
                 headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
             });
+
+            if (res.status === 429) {
+                const data = await res.json();
+                setSyncingGithub(false);
+                if (data.limitReached) {
+                    setShowUpgradeModal(true);
+                } else {
+                    setError(data.message || "Rate limit reached — try again shortly.");
+                }
+                return;
+            }
+
             const data = await res.json();
             if (!res.ok) throw new Error(data.message);
             // If the socket event already fired (unlikely but possible on fast machines),
@@ -413,6 +427,11 @@ export default function ProfileEditPage() {
                         ))}
                     </div>
                 </div>
+
+                <UpgradeModal
+                    isOpen={showUpgradeModal}
+                    onClose={() => setShowUpgradeModal(false)}
+                />
             </main>
         </AuthGuard>
     );

@@ -56,3 +56,83 @@ body {
   mask-composite: exclude;
   pointer-events: none;
 }
+
+
+:root {
+  --color-accent: #00e5d4;
+  --color-on-accent: #04120f;
+  --color-bg: #08090c;
+  --color-surface: rgba(0, 229, 212, 0.06);
+  --color-surface-border: rgba(0, 229, 212, 0.16);
+  --color-text: #edeff2;
+  --color-text-muted: rgba(237, 239, 242, 0.35);
+  --bg-image: url("/tokyo.png");
+  --bg-overlay: linear-gradient(180deg, rgba(8,9,12,0.55) 0%, rgba(8,9,12,0.78) 60%, rgba(8,9,12,0.92) 100%);
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* liquid-glass now reads from theme tokens instead of a fixed tint */
+.liquid-glass {
+  background: var(--color-surface);
+  border: 1px solid var(--color-surface-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: background 0.4s ease, border-color 0.4s ease;
+}
+
+/* Ambient background layer — photo + dark scrim on top for legibility.
+ The overlay is listed first so it paints above the photo (CSS stacks
+ comma-separated background-images with the first on top). */
+.theme-ambient {
+  background-image: var(--bg-overlay), var(--bg-image);
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  transition: background-image 0.5s ease;
+}
+
+/* Optional per-theme ambient motion, driven by data-theme-animation on <html>.
+ All respect prefers-reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme-animation="drift"] .theme-ambient {
+      animation: theme-drift 18s ease-in-out infinite alternate;
+  }
+  [data-theme-animation="pulse"] .theme-ambient {
+      animation: theme-pulse 6s ease-in-out infinite;
+  }
+  [data-theme-animation="flicker"] .theme-ambient {
+      animation: theme-flicker 4s steps(12, end) infinite;
+  }
+}
+
+@keyframes theme-drift {
+  from {
+      background-position: 50% 0%, 20% 20%;
+  }
+  to {
+      background-position: 55% 5%, 25% 15%;
+  }
+}
+
+@keyframes theme-pulse {
+  0%, 100% {
+      opacity: 1;
+  }
+  50% {
+      opacity: 0.7;
+  }
+}
+
+@keyframes theme-flicker {
+  0%, 19%, 21%, 23%, 100% {
+      opacity: 1;
+  }
+  20%, 22% {
+      opacity: 0.85;
+  }
+}
