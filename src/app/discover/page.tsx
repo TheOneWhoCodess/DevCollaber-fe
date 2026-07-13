@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import SwipeCard from "@/src/components/SwipeCard";
 import MatchPopup from "@/src/components/MatchPopup";
-import { SlidersHorizontal, RefreshCw, Search, X } from "lucide-react";
+import { SlidersHorizontal, RefreshCw, Search, X, MessageSquarePlus } from "lucide-react";
 import AuthGuard from "@/src/components/AuthGuard";
 import OnboardingTour from "@/src/components/OnboardingTour";
 import NotificationBell from "@/src/components/NotificationBell";
@@ -81,8 +81,6 @@ export default function DiscoverPage() {
     useEffect(() => {
         if (!socket) return;
 
-        // new_match: show the popup. explanation arrives separately via match_explanation_ready
-        // which MatchPopup itself listens for (keyed by matchId).
         const handleMatch = (data: MatchEvent) => setMatch(data);
         socket.on("new_match", handleMatch);
 
@@ -141,6 +139,13 @@ export default function DiscoverPage() {
                             className={`liquid-glass w-10 h-10 rounded-[12px] flex items-center justify-center transition-colors ${filterRole ? "bg-neon/20 border border-neon/30" : "hover:bg-white/10"}`}
                         >
                             <SlidersHorizontal size={16} className={filterRole ? "text-neon" : "text-cream/60"} />
+                        </button>
+                        <button
+                            onClick={() => router.push("/feedback")}
+                            className="liquid-glass w-10 h-10 rounded-[12px] flex items-center justify-center hover:bg-white/10 transition-colors"
+                            aria-label="Send feedback"
+                        >
+                            <MessageSquarePlus size={16} className="text-cream/60" />
                         </button>
                     </div>
                 </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/src/lib/AuthContext";
 import { SocketProvider } from "@/src/lib/SocketContext";
+import HelpWidget from "@/src/components/HelpWidget";
 
 export const metadata: Metadata = {
     title: "DevCollab | Find Your Match",
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <AuthProvider>
                     <SocketProvider>
                         {children}
+                        <HelpWidget />
                     </SocketProvider>
                 </AuthProvider>
             </body>
