@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Sparkles } from "lucide-react";
+import { MessageCircle, Sparkles, Lightbulb } from "lucide-react";
 import AuthGuard from "@/src/components/AuthGuard";
 import NotificationBell from "@/src/components/NotificationBell";
 import { useAuth } from "@/src/lib/AuthContext";
@@ -17,12 +17,20 @@ interface MatchUser {
     bio: string;
 }
 
+interface ProjectIdea {
+    title: string;
+    description: string;
+    techStack: string[];
+}
+
 interface Match {
     _id: string;
     users: MatchUser[];
     matchScore: number;
     matchExplanation?: string;
     explanationStatus: "pending" | "ready" | "failed";
+    projectIdea?: ProjectIdea;
+    projectIdeaStatus: "none" | "pending" | "ready" | "failed";
     status: string;
     matchedAt: string;
 }
@@ -89,12 +97,51 @@ export default function MatchesPage() {
             );
         };
 
+        const handleProjectIdea = (data: { matchId: string; projectIdea: ProjectIdea }) => {
+            setMatches((prev) =>
+                prev.map((m) =>
+                    m._id === data.matchId
+                        ? { ...m, projectIdea: data.projectIdea, projectIdeaStatus: "ready" }
+                        : m
+                )
+            );
+        };
+
         socket.on("match_explanation_ready", handleExplanation);
-        return () => { socket.off("match_explanation_ready", handleExplanation); };
+        socket.on("project_idea_ready", handleProjectIdea);
+        return () => {
+            socket.off("match_explanation_ready", handleExplanation);
+            socket.off("project_idea_ready", handleProjectIdea);
+        };
     }, [socket]);
 
     const getOther = (match: Match) =>
         match.users.find((u) => u._id !== user?._id) || match.users[0];
+
+    const generateProjectIdea = async (matchId: string) => {
+        // Optimistic — flip to pending immediately so the shimmer shows
+        // right away instead of waiting on the round trip.
+        setMatches((prev) =>
+            prev.map((m) => (m._id === matchId ? { ...m, projectIdeaStatus: "pending" } : m))
+        );
+        try {
+            const token = localStorage.getItem("token");
+            await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/matches/${matchId}/project-idea`,
+                {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${token}` },
+                }
+            );
+            // Actual result arrives via the project_idea_ready socket event —
+            // nothing else to do here on success.
+        } catch (err) {
+            console.error(err);
+            setMatches((prev) =>
+                prev.map((m) => (m._id === matchId ? { ...m, projectIdeaStatus: "failed" } : m))
+            );
+        }
+    };
 
     return (
         <AuthGuard>
@@ -190,6 +237,69 @@ export default function MatchesPage() {
                                                 <p className="font-mono text-[10px] text-cream/25 leading-relaxed">
                                                     {match.matchScore}% skill overlap
                                                 </p>
+                                            )}
+                                        </div>
+
+                                        {/* AI Project Idea section */}
+                                        <div
+                                            className="border-t border-white/5 px-5 py-3"
+                                            onClick={(e) => e.stopPropagation()} // don't nav to chat when tapping this section
+                                        >
+                                            {match.projectIdeaStatus === "none" && (
+                                                <button
+                                                    onClick={() => generateProjectIdea(match._id)}
+                                                    className="flex items-center gap-2 font-grotesk text-[10px] uppercase tracking-widest text-neon/70 hover:text-neon transition-colors"
+                                                >
+                                                    <Lightbulb size={12} />
+                                                    Generate Project Idea
+                                                </button>
+                                            )}
+
+                                            {match.projectIdeaStatus === "pending" && (
+                                                <div className="flex items-start gap-2 animate-pulse">
+                                                    <Lightbulb size={11} className="text-neon/50 mt-0.5 flex-shrink-0" />
+                                                    <div className="flex-1 flex flex-col gap-1.5">
+                                                        <div className="h-2 bg-white/10 rounded-full w-2/5" />
+                                                        <div className="h-2 bg-white/10 rounded-full w-full" />
+                                                        <div className="h-2 bg-white/10 rounded-full w-3/5" />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {match.projectIdeaStatus === "ready" && match.projectIdea && (
+                                                <div className="flex items-start gap-2">
+                                                    <Lightbulb size={11} className="text-neon/70 mt-0.5 flex-shrink-0" />
+                                                    <div className="flex-1">
+                                                        <p className="font-grotesk text-[11px] uppercase text-cream mb-1">
+                                                            {match.projectIdea.title}
+                                                        </p>
+                                                        <p className="font-mono text-[10px] text-cream/50 leading-relaxed mb-2">
+                                                            {match.projectIdea.description}
+                                                        </p>
+                                                        {match.projectIdea.techStack?.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {match.projectIdea.techStack.map((tech) => (
+                                                                    <span
+                                                                        key={tech}
+                                                                        className="px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30 font-mono text-[9px] uppercase text-purple-300"
+                                                                    >
+                                                                        {tech}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {match.projectIdeaStatus === "failed" && (
+                                                <button
+                                                    onClick={() => generateProjectIdea(match._id)}
+                                                    className="flex items-center gap-2 font-grotesk text-[10px] uppercase tracking-widest text-red-400/70 hover:text-red-400 transition-colors"
+                                                >
+                                                    <Lightbulb size={12} />
+                                                    Failed — Retry
+                                                </button>
                                             )}
                                         </div>
                                     </div>
