@@ -1,5 +1,5 @@
 import { Github, ExternalLink } from "lucide-react";
-import GitHubStats from "@/src/components/GitHubStats.tsx";
+import GitHubStats from "@/src/components/GitHubStats";
 async function getProfile(username: string) {
     try {
         const res = await fetch(
