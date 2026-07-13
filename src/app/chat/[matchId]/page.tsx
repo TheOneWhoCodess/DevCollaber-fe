@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 import { ArrowLeft, Send } from "lucide-react";
 import AuthGuard from "@/src/components/AuthGuard";
@@ -24,6 +24,7 @@ interface MatchUser {
 export default function ChatPage() {
     const router = useRouter();
     const { matchId } = useParams<{ matchId: string }>();
+    const searchParams = useSearchParams();
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
@@ -43,6 +44,20 @@ export default function ChatPage() {
 
     const { user } = useAuth();
     useEffect(() => { scrollToBottom(); }, [messages]);
+
+    /* ── Prefill input from ?draft= (e.g. an AI-generated icebreaker
+       from the Matches page). Only runs once on mount — if the person
+       clears it, we don't want it reappearing on a later re-render. ─── */
+    useEffect(() => {
+        const draft = searchParams.get("draft");
+        if (draft) {
+            setInput(draft);
+            // Clean the URL so refreshing doesn't re-prefill after they've
+            // already edited or sent it.
+            router.replace(`/chat/${matchId}`);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     /* ── Fetch initial data ───────────────────────── */
     useEffect(() => {

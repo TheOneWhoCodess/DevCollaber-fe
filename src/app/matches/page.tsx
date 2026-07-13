@@ -192,6 +192,14 @@ export default function MatchesPage() {
         }
     };
 
+    // Navigates to the chat with the icebreaker pre-filled rather than
+    // sending it directly from here — avoids duplicating whatever the
+    // chat page's actual send logic is (REST vs socket emit), and lets
+    // the person glance at/edit it before it actually sends.
+    const sendIcebreaker = (matchId: string, text: string) => {
+        router.push(`/chat/${matchId}?draft=${encodeURIComponent(text)}`);
+    };
+
     const generateProjectIdea = async (matchId: string) => {
         // Optimistic — flip to pending immediately so the shimmer shows
         // right away instead of waiting on the round trip.
@@ -372,9 +380,23 @@ export default function MatchesPage() {
 
                                                         {match.concierge.action === "icebreaker" && match.concierge.icebreaker && (
                                                             <div className="liquid-glass rounded-[12px] p-3">
-                                                                <p className="font-mono text-[10px] text-cream/70 leading-relaxed">
+                                                                <p className="font-mono text-[10px] text-cream/70 leading-relaxed mb-2">
                                                                     {match.concierge.icebreaker}
                                                                 </p>
+                                                                <div className="flex items-center gap-3">
+                                                                    <button
+                                                                        onClick={() => sendIcebreaker(match._id, match.concierge!.icebreaker!)}
+                                                                        className="font-grotesk text-[9px] uppercase tracking-widest text-neon/80 hover:text-neon transition-colors"
+                                                                    >
+                                                                        Send as first message
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => runConcierge(match._id)}
+                                                                        className="font-grotesk text-[9px] uppercase tracking-widest text-cream/30 hover:text-cream/60 transition-colors"
+                                                                    >
+                                                                        Regenerate
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         )}
 
@@ -441,7 +463,7 @@ export default function MatchesPage() {
                                                             {match.projectIdea.description}
                                                         </p>
                                                         {match.projectIdea.techStack?.length > 0 && (
-                                                            <div className="flex flex-wrap gap-1.5">
+                                                            <div className="flex flex-wrap gap-1.5 mb-2">
                                                                 {match.projectIdea.techStack.map((tech) => (
                                                                     <span
                                                                         key={tech}
@@ -452,6 +474,12 @@ export default function MatchesPage() {
                                                                 ))}
                                                             </div>
                                                         )}
+                                                        <button
+                                                            onClick={() => generateProjectIdea(match._id)}
+                                                            className="font-grotesk text-[9px] uppercase tracking-widest text-cream/30 hover:text-cream/60 transition-colors"
+                                                        >
+                                                            Regenerate
+                                                        </button>
                                                     </div>
                                                 </div>
                                             )}
