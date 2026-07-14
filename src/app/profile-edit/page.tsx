@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AuthGuard from "@/src/components/AuthGuard";
-import { Camera, LogOut, Check, Share, Github, Sparkles, RefreshCw } from "lucide-react";
+import { Camera, LogOut, Check, Share, Github, Sparkles, RefreshCw, LayoutDashboard } from "lucide-react";
 import GitHubStats from "@/src/components/GitHubStats";
 import UpgradeModal from "@/src/components/upgradeModal";
 import { useAuth } from "@/src/lib/AuthContext";
@@ -39,6 +39,7 @@ export default function ProfileEditPage() {
         name: "", role: "", bio: "", skills: [] as string[],
         lookingFor: [] as string[], projectIdea: "", projectType: "",
         commitment: "", experience: "", github: "", linkedin: "",
+        website: "",
         location: "", isAvailable: true,
     });
 
@@ -60,6 +61,7 @@ export default function ProfileEditPage() {
                 projectIdea: u.projectIdea || "", projectType: u.projectType || "",
                 commitment: u.commitment || "", experience: u.experience?.toString() || "",
                 github: u.github || "", linkedin: u.linkedin || "",
+                website: u.website || "",
                 location: u.location || "", isAvailable: u.isAvailable ?? true,
             });
         };
@@ -221,6 +223,13 @@ export default function ProfileEditPage() {
                             <h1 className="font-grotesk text-[28px] uppercase text-cream leading-tight">Your Dev Identity</h1>
                         </div>
                         <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => router.push("/profile")}
+                                className="liquid-glass rounded-[12px] px-4 py-2 flex items-center gap-2 hover:bg-neon/10 transition-colors"
+                            >
+                                <LayoutDashboard size={14} className="text-neon" />
+                                <span className="font-mono text-[11px] uppercase text-neon">Dashboard</span>
+                            </button>
                             <button
                                 onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/u/${encodeURIComponent(form.name)}`); }}
                                 className="liquid-glass rounded-[12px] px-4 py-2 flex items-center gap-2 hover:bg-white/10 transition-colors"
@@ -389,12 +398,21 @@ export default function ProfileEditPage() {
                             )}
 
                             {/* Raw GitHub stats */}
-                            {githubUsername && <GitHubStats username={githubUsername} />}
+                            {githubUsername && <GitHubStats username={githubUsername} skills={form.skills} />}
                         </div>
 
                         {/* LinkedIn */}
                         <div><Label>LinkedIn URL</Label>
                             <input value={form.linkedin} onChange={(e) => set("linkedin", e.target.value)} placeholder="https://linkedin.com/in/..." className="w-full liquid-glass rounded-[12px] px-4 py-3 font-mono text-[12px] text-cream placeholder:text-cream/20 bg-transparent outline-none" />
+                        </div>
+
+                        {/* Portfolio / Website — feeds the PortfolioPreviewCard shown
+                            on the public profile page (u/[username]). */}
+                        <div><Label>Portfolio URL</Label>
+                            <input value={form.website} onChange={(e) => set("website", e.target.value)} placeholder="https://yourname.dev" className="w-full liquid-glass rounded-[12px] px-4 py-3 font-mono text-[12px] text-cream placeholder:text-cream/20 bg-transparent outline-none" />
+                            <p className="font-mono text-[10px] text-cream/20 mt-1.5">
+                                Shown as a preview card on your public profile
+                            </p>
                         </div>
 
                         {error && <p className="font-mono text-[11px] uppercase text-red-400">{error}</p>}

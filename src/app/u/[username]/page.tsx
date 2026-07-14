@@ -1,5 +1,7 @@
 import { Github, ExternalLink } from "lucide-react";
 import GitHubStats from "@/src/components/GitHubStats";
+import PortfolioPreviewCard from "@/src/components/PortfolioPreviewCard";
+
 async function getProfile(username: string) {
     try {
         const res = await fetch(
@@ -23,8 +25,9 @@ const roleColors: Record<string, string> = {
     mobile: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
 };
 
-export default async function PublicProfilePage({ params }: { params: { username: string } }) {
-    const user = await getProfile(params.username);
+export default async function PublicProfilePage({ params }: { params: Promise<{ username: string }> }) {
+    const { username } = await params;
+    const user = await getProfile(username);
 
     if (!user) return (
         <main className="min-h-screen bg-background flex items-center justify-center">
@@ -82,10 +85,10 @@ export default async function PublicProfilePage({ params }: { params: { username
                             <p className="font-mono text-[12px] text-cream/70 leading-relaxed uppercase">{user.bio}</p>
                         </div>
                     )}
-                    {user.github && <GitHubStats username={user.github} />}
+                    {user.github && <GitHubStats username={user.github} skills={user.skills} />}
                     {/* Skills */}
                     {user.skills?.length > 0 && (
-                        <div className="mb-6">
+                        <div className="mb-6 mt-6">
                             <p className="font-grotesk text-[10px] uppercase tracking-[0.2em] text-cream/30 mb-3">Skills</p>
                             <div className="flex flex-wrap gap-2">
                                 {user.skills.map((s: string) => (
@@ -102,6 +105,16 @@ export default async function PublicProfilePage({ params }: { params: { username
                         <div className="liquid-glass rounded-[20px] p-4 mb-6">
                             <p className="font-grotesk text-[10px] uppercase tracking-[0.2em] text-cream/30 mb-2">Building</p>
                             <p className="font-mono text-[11px] text-cream/80 leading-relaxed uppercase">{user.projectIdea}</p>
+                        </div>
+                    )}
+
+                    {/* Portfolio preview — rich card instead of a plain link,
+                        falls back to a plain link automatically if the site
+                        can't be previewed (see PortfolioPreviewCard). */}
+                    {user.website && (
+                        <div className="mb-6">
+                            <p className="font-grotesk text-[10px] uppercase tracking-[0.2em] text-cream/30 mb-3">Portfolio</p>
+                            <PortfolioPreviewCard url={user.website} />
                         </div>
                     )}
 

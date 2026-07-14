@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import AuthGuard from "@/src/components/AuthGuard";
-import { ArrowLeft, Check, X, Github } from "lucide-react";
+import UpgradeModal from "@/src/components/upgradeModal";
+import { ArrowLeft, Check, X, Github, Sparkles } from "lucide-react";
 
 interface Application {
     _id: string;
@@ -22,6 +23,11 @@ interface Application {
     createdAt: string;
 }
 
+interface Ranking {
+    score: number;
+    reason: string;
+}
+
 const roleColors: Record<string, string> = {
     frontend: "bg-blue-500/20 text-blue-300 border-blue-500/30",
     backend: "bg-green-500/20 text-green-300 border-green-500/30",
@@ -37,6 +43,14 @@ export default function ApplicationsPage() {
     const [applications, setApplications] = useState<Application[]>([]);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState<string | null>(null);
+
+    // AI ranking state — a map of applicationId -> {score, reason}, kept
+    // separate from `applications` so ranking is an enrichment layer,
+    // not a destructive re-fetch.
+    const [rankings, setRankings] = useState<Record<string, Ranking>>({});
+    const [ranking, setRanking] = useState(false);
+    const [rankError, setRankError] = useState("");
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
     useEffect(() => {
         const fetchApplications = async () => {
@@ -56,6 +70,37 @@ export default function ApplicationsPage() {
         };
         fetchApplications();
     }, [id, router]);
+
+    const rankApplicants = async () => {
+        setRanking(true);
+        setRankError("");
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/projects/${id}/applications/rank`,
+                { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (res.status === 429) {
+                const data = await res.json();
+                if (data.limitReached) setShowUpgradeModal(true);
+                return;
+            }
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to rank applicants");
+
+            const map: Record<string, Ranking> = {};
+            for (const r of data.rankings || []) {
+                map[r.id] = { score: r.score, reason: r.reason };
+            }
+            setRankings(map);
+        } catch (err) {
+            setRankError(err instanceof Error ? err.message : "Failed to rank applicants");
+        } finally {
+            setRanking(false);
+        }
+    };
 
     const updateStatus = async (appId: string, status: "accepted" | "rejected") => {
         setUpdating(appId);
@@ -81,8 +126,16 @@ export default function ApplicationsPage() {
         }
     };
 
-    const pending = applications.filter((a) => a.status === "pending");
     const decided = applications.filter((a) => a.status !== "pending");
+
+    // Pending list sorted by AI score when available, otherwise falls back
+    // to the original order (newest first, as returned by the API).
+    const pending = applications
+        .filter((a) => a.status === "pending")
+        .slice()
+        .sort((a, b) => (rankings[b._id]?.score ?? -1) - (rankings[a._id]?.score ?? -1));
+
+    const topScore = Math.max(0, ...pending.map((a) => rankings[a._id]?.score ?? -1));
 
     const timeAgo = (date: string) => {
         const diff = Date.now() - new Date(date).getTime();
@@ -95,9 +148,26 @@ export default function ApplicationsPage() {
 
     const AppCard = ({ app }: { app: Application }) => {
         const initials = app.applicant.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+        const rank = rankings[app._id];
+        const isBestFit = rank && rank.score === topScore && topScore >= 0;
 
         return (
-            <div className="liquid-glass rounded-[24px] p-5">
+            <div className={`liquid-glass rounded-[24px] p-5 ${isBestFit ? "border border-neon/40" : ""}`}>
+                {/* Best fit badge + AI reasoning */}
+                {rank && (
+                    <div className="flex items-center gap-2 mb-3">
+                        {isBestFit && (
+                            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-neon/15 border border-neon/40 font-mono text-[9px] uppercase text-neon">
+                                <Sparkles size={9} />
+                                Best fit
+                            </span>
+                        )}
+                        <span className="font-mono text-[9px] uppercase text-cream/30">
+                            {rank.score}/100 · {rank.reason}
+                        </span>
+                    </div>
+                )}
+
                 {/* Header */}
                 <div className="flex items-start gap-3 mb-4">
                     <div className="w-12 h-12 rounded-[14px] bg-neon/10 border border-neon/20 overflow-hidden flex items-center justify-center flex-shrink-0">
@@ -118,7 +188,6 @@ export default function ApplicationsPage() {
                         </div>
                         <p className="font-mono text-[10px] uppercase text-cream/40 mt-0.5">{timeAgo(app.createdAt)}</p>
                     </div>
-                    {/* Status badge */}
                     {app.status !== "pending" && (
                         <span className={`px-3 py-1 rounded-full text-[9px] font-mono uppercase border flex-shrink-0 ${app.status === "accepted"
                             ? "bg-neon/20 text-neon border-neon/30"
@@ -129,7 +198,6 @@ export default function ApplicationsPage() {
                     )}
                 </div>
 
-                {/* Skills */}
                 {app.applicant.skills?.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-3">
                         {app.applicant.skills.slice(0, 5).map((s) => (
@@ -140,14 +208,12 @@ export default function ApplicationsPage() {
                     </div>
                 )}
 
-                {/* Bio */}
                 {app.applicant.bio && (
                     <p className="font-mono text-[11px] text-cream/50 leading-relaxed uppercase mb-3">
                         {app.applicant.bio}
                     </p>
                 )}
 
-                {/* Message */}
                 {app.message && (
                     <div className="bg-white/5 rounded-[16px] px-4 py-3 mb-4">
                         <p className="font-grotesk text-[9px] uppercase tracking-[0.2em] text-cream/30 mb-1">Their message</p>
@@ -155,7 +221,6 @@ export default function ApplicationsPage() {
                     </div>
                 )}
 
-                {/* GitHub link */}
                 {app.applicant.github && (
                     <a
                         href={app.applicant.github}
@@ -168,7 +233,6 @@ export default function ApplicationsPage() {
                     </a>
                 )}
 
-                {/* Actions */}
                 {app.status === "pending" && (
                     <div className="flex gap-3">
                         <button
@@ -229,9 +293,24 @@ export default function ApplicationsPage() {
                         <div className="flex flex-col gap-6">
                             {pending.length > 0 && (
                                 <div>
-                                    <p className="font-grotesk text-[11px] uppercase tracking-[0.2em] text-cream/30 mb-4">
-                                        Pending · {pending.length}
-                                    </p>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <p className="font-grotesk text-[11px] uppercase tracking-[0.2em] text-cream/30">
+                                            Pending · {pending.length}
+                                        </p>
+                                        {pending.length > 1 && (
+                                            <button
+                                                onClick={rankApplicants}
+                                                disabled={ranking}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full liquid-glass font-mono text-[9px] uppercase text-neon/80 hover:text-neon hover:bg-neon/10 transition-colors disabled:opacity-40"
+                                            >
+                                                <Sparkles size={11} className={ranking ? "animate-pulse" : ""} />
+                                                {ranking ? "Ranking..." : "Rank with AI"}
+                                            </button>
+                                        )}
+                                    </div>
+                                    {rankError && (
+                                        <p className="font-mono text-[10px] text-red-400 uppercase mb-3">{rankError}</p>
+                                    )}
                                     <div className="flex flex-col gap-4">
                                         {pending.map((app) => <AppCard key={app._id} app={app} />)}
                                     </div>
@@ -250,6 +329,11 @@ export default function ApplicationsPage() {
                         </div>
                     )}
                 </div>
+
+                <UpgradeModal
+                    isOpen={showUpgradeModal}
+                    onClose={() => setShowUpgradeModal(false)}
+                />
             </main>
         </AuthGuard>
     );

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AuthGuard from "@/src/components/AuthGuard";
-import { ArrowLeft } from "lucide-react";
+import UpgradeModal from "@/src/components/upgradeModal";
+import { ArrowLeft, Sparkles, Check, X as XIcon } from "lucide-react";
 
 const ROLES = ["frontend", "backend", "fullstack", "devops", "ml", "mobile"];
 const STAGES = ["idea", "mvp", "building", "launched"];
@@ -20,6 +21,13 @@ export default function NewProjectPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [techInput, setTechInput] = useState("");
+
+    // AI expansion state — kept separate from form.description so the
+    // suggestion is a non-destructive preview until the user accepts it.
+    const [expanding, setExpanding] = useState(false);
+    const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
+    const [expandError, setExpandError] = useState("");
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
     const [form, setForm] = useState({
         title: "",
@@ -49,6 +57,52 @@ export default function NewProjectPage() {
         const t = tech.trim();
         if (t && !form.techStack.includes(t)) set("techStack", [...form.techStack, t]);
         setTechInput("");
+    };
+
+    const expandDescription = async () => {
+        if (!form.description.trim()) {
+            setExpandError("Write a rough draft first — even a sentence or two");
+            return;
+        }
+        setExpanding(true);
+        setExpandError("");
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/projects/expand-description`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({
+                        draft: form.description,
+                        title: form.title,
+                        techStack: form.techStack,
+                        rolesNeeded: form.rolesNeeded,
+                        projectType: form.projectType,
+                        stage: form.stage,
+                    }),
+                }
+            );
+
+            if (res.status === 429) {
+                const data = await res.json();
+                if (data.limitReached) setShowUpgradeModal(true);
+                return;
+            }
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to expand description");
+            setExpandedSuggestion(data.description);
+        } catch (err) {
+            setExpandError(err instanceof Error ? err.message : "Failed to expand description");
+        } finally {
+            setExpanding(false);
+        }
+    };
+
+    const acceptSuggestion = () => {
+        if (expandedSuggestion) set("description", expandedSuggestion);
+        setExpandedSuggestion(null);
     };
 
     const handleSubmit = async () => {
@@ -132,16 +186,60 @@ export default function NewProjectPage() {
 
                         {/* Description */}
                         <div>
-                            <Label>Description *</Label>
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="font-grotesk text-[11px] uppercase tracking-[0.2em] text-cream/40">Description *</p>
+                                <button
+                                    onClick={expandDescription}
+                                    disabled={expanding || !form.description.trim()}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full liquid-glass font-mono text-[9px] uppercase text-neon/80 hover:text-neon hover:bg-neon/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                    <Sparkles size={11} className={expanding ? "animate-pulse" : ""} />
+                                    {expanding ? "Expanding..." : "Expand with AI"}
+                                </button>
+                            </div>
                             <textarea
                                 value={form.description}
-                                onChange={(e) => set("description", e.target.value)}
-                                placeholder="Describe your project, what problem it solves, and what you've done so far..."
+                                onChange={(e) => { set("description", e.target.value); setExpandedSuggestion(null); }}
+                                placeholder="Describe your project, what problem it solves, and what you've done so far... (even a rough sentence is fine — AI can help expand it)"
                                 maxLength={1000}
                                 rows={4}
                                 className="w-full liquid-glass rounded-[16px] px-5 py-4 font-mono text-[12px] uppercase text-cream placeholder:text-cream/20 bg-transparent outline-none resize-none leading-relaxed"
                             />
-                            <p className="font-mono text-[10px] text-cream/20 mt-1 text-right">{form.description.length}/1000</p>
+                            <div className="flex items-center justify-between mt-1">
+                                {expandError ? (
+                                    <p className="font-mono text-[10px] text-red-400 uppercase">{expandError}</p>
+                                ) : <span />}
+                                <p className="font-mono text-[10px] text-cream/20 text-right">{form.description.length}/1000</p>
+                            </div>
+
+                            {/* AI suggestion preview — non-destructive until accepted */}
+                            {expandedSuggestion && (
+                                <div className="mt-3 liquid-glass rounded-[16px] p-4 border border-neon/20">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Sparkles size={11} className="text-neon/70" />
+                                        <p className="font-grotesk text-[9px] uppercase tracking-[0.2em] text-neon/70">AI suggestion</p>
+                                    </div>
+                                    <p className="font-mono text-[11px] text-cream/70 leading-relaxed uppercase mb-3">
+                                        {expandedSuggestion}
+                                    </p>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={acceptSuggestion}
+                                            className="flex items-center gap-1.5 font-grotesk text-[9px] uppercase tracking-widest text-neon hover:text-neon/80 transition-colors"
+                                        >
+                                            <Check size={11} />
+                                            Use this
+                                        </button>
+                                        <button
+                                            onClick={() => setExpandedSuggestion(null)}
+                                            className="flex items-center gap-1.5 font-grotesk text-[9px] uppercase tracking-widest text-cream/40 hover:text-cream/60 transition-colors"
+                                        >
+                                            <XIcon size={11} />
+                                            Discard
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Stage */}
@@ -257,6 +355,11 @@ export default function NewProjectPage() {
                         </button>
                     </div>
                 </div>
+
+                <UpgradeModal
+                    isOpen={showUpgradeModal}
+                    onClose={() => setShowUpgradeModal(false)}
+                />
             </main>
         </AuthGuard>
     );
